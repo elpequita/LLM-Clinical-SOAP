@@ -1,0 +1,59 @@
+# Clinical Documentation Desktop Application Requirements
+
+# Core Desktop UI
+customtkinter==5.2.0
+tkinter-tooltip==2.1.0
+
+# Audio Processing
+pyaudio==0.2.13
+pydub==0.25.1
+wave
+tempfile
+
+# Speech Recognition
+openai-whisper==20240930
+torch==2.1.0
+numpy>=1.24.0
+
+# Database
+mysql-connector-python==8.2.0
+
+# Security and Authentication
+hashlib
+uuid
+requests>=2.31.0
+
+# System and File Operations
+pathlib
+shutil
+subprocess
+threading
+json
+os
+sys
+datetime
+time
+
+# LLM Integration (Ollama)
+requests>=2.31.0
+
+# Remote Activation Service
+flask==3.0.0
+flask-cors==4.0.0
+
+# Audio Format Support
+ffmpeg-python==0.2.0
+
+# Packaging and Distribution
+pyinstaller==6.2.0
+auto-py-to-exe==2.43.0
+
+# Development and Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+black>=23.0.0
+flake8>=6.0.0
+
+# Additional utilities
+python-dotenv>=1.0.0
+Pillow>=10.0.0
