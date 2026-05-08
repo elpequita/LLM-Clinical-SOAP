@@ -5,6 +5,15 @@ A local Python application for medical speech-to-text transcription and SOAP not
 """
 
 import os
+# Anaconda + CTranslate2 (faster-whisper backend) ship different OpenMP runtimes
+# that conflict at import time on Windows ("OMP: Error #15: libiomp5md.dll already
+# initialized"). This setdefault must run BEFORE faster_whisper is imported. It's
+# Intel's documented workaround for this exact case.
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+# Suppress the symlink-fallback warning HuggingFace prints on Windows when not
+# running as admin / with Developer Mode on. The model still downloads correctly.
+os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+
 import sys
 import json
 import threading
