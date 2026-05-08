@@ -274,58 +274,112 @@ class LoginWindow:
     def show_login(self):
         """Display login window"""
         self.root = ctk.CTk()
-        self.root.title("Clinical Documentation AI - Login")
-        self.root.geometry("400x500")
-        
-        # Main frame
-        main_frame = ctk.CTkFrame(self.root)
-        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        # Title
-        title_label = ctk.CTkLabel(main_frame, text="Clinical Documentation AI", 
-                                 font=ctk.CTkFont(size=24, weight="bold"))
-        title_label.pack(pady=(20, 10))
-        
-        # Check activation status
+        self.root.title("Clinical Documentation AI")
+        self.root.geometry("460x640")
+        self.root.resizable(False, False)
+        ctk.set_appearance_mode("system")
+
+        # Activation check first — render a different screen if deactivated
         if not self.security_manager.check_activation():
-            error_label = ctk.CTkLabel(main_frame, 
-                text="❌ Application has been deactivated.\nPlease contact support.",
-                font=ctk.CTkFont(size=14), text_color="red")
-            error_label.pack(pady=20)
-            
-            self.root.after(3000, self.root.destroy)
-            self.root.mainloop()
+            self._render_deactivated_screen()
             return None
-        
-        # Username
-        ctk.CTkLabel(main_frame, text="Username:", font=ctk.CTkFont(size=14)).pack(pady=(20, 5))
-        self.username_entry = ctk.CTkEntry(main_frame, width=300)
-        self.username_entry.pack(pady=(0, 10))
-        
-        # Password
-        ctk.CTkLabel(main_frame, text="Password:", font=ctk.CTkFont(size=14)).pack(pady=(10, 5))
-        self.password_entry = ctk.CTkEntry(main_frame, width=300, show="*")
-        self.password_entry.pack(pady=(0, 20))
-        
-        # Login button
-        login_button = ctk.CTkButton(main_frame, text="Login", command=self.login, 
-                                   height=40, width=200)
-        login_button.pack(pady=10)
-        
-        # Register button
-        register_button = ctk.CTkButton(main_frame, text="Register New User", 
-                                      command=self.show_register, height=40, width=200)
-        register_button.pack(pady=10)
-        
-        # Error label
-        self.error_label = ctk.CTkLabel(main_frame, text="", text_color="red")
-        self.error_label.pack(pady=10)
-        
-        # Bind Enter key to login
-        self.root.bind('<Return>', lambda event: self.login())
-        
+
+        container = ctk.CTkFrame(self.root, fg_color="transparent")
+        container.pack(fill="both", expand=True, padx=44, pady=36)
+
+        # Brand area
+        ctk.CTkLabel(container, text="🩺", font=ctk.CTkFont(size=56)).pack(pady=(12, 6))
+        ctk.CTkLabel(
+            container,
+            text="Clinical Documentation AI",
+            font=ctk.CTkFont(size=22, weight="bold"),
+        ).pack()
+        ctk.CTkLabel(
+            container,
+            text="Dictate · Transcribe · Document",
+            font=ctk.CTkFont(size=12),
+            text_color=("gray40", "gray60"),
+        ).pack(pady=(2, 28))
+
+        # Form card
+        form = ctk.CTkFrame(container, corner_radius=12)
+        form.pack(fill="x")
+
+        ctk.CTkLabel(
+            form, text="Username",
+            font=ctk.CTkFont(size=12, weight="bold"), anchor="w",
+        ).pack(fill="x", padx=22, pady=(20, 4))
+        self.username_entry = ctk.CTkEntry(
+            form, placeholder_text="Enter your username", height=38,
+        )
+        self.username_entry.pack(fill="x", padx=22, pady=(0, 14))
+
+        ctk.CTkLabel(
+            form, text="Password",
+            font=ctk.CTkFont(size=12, weight="bold"), anchor="w",
+        ).pack(fill="x", padx=22, pady=(4, 4))
+        pwd_row = ctk.CTkFrame(form, fg_color="transparent")
+        pwd_row.pack(fill="x", padx=22, pady=(0, 22))
+        self.password_entry = ctk.CTkEntry(
+            pwd_row, placeholder_text="Enter your password", show="•", height=38,
+        )
+        self.password_entry.pack(side="left", fill="x", expand=True)
+        self._password_visible = False
+        self._toggle_pwd_btn = ctk.CTkButton(
+            pwd_row, text="👁", width=38, height=38,
+            fg_color="transparent", hover_color=("gray86", "gray26"),
+            text_color=("gray35", "gray70"),
+            command=self._toggle_password_visibility,
+        )
+        self._toggle_pwd_btn.pack(side="right", padx=(6, 0))
+
+        # Primary action
+        ctk.CTkButton(
+            container, text="Sign In", command=self.login,
+            height=42, font=ctk.CTkFont(size=14, weight="bold"),
+        ).pack(fill="x", pady=(18, 10))
+
+        # Inline error (kept reserved height even when empty so layout doesn't jump)
+        self.error_label = ctk.CTkLabel(
+            container, text="", text_color=("#C53030", "#FC8181"),
+            font=ctk.CTkFont(size=12), height=18,
+        )
+        self.error_label.pack()
+
+        # Register secondary action
+        ctk.CTkButton(
+            container, text="Need an account?  Register",
+            command=self.show_register,
+            fg_color="transparent", hover_color=("gray90", "gray20"),
+            text_color=("gray30", "gray70"),
+            font=ctk.CTkFont(size=12), height=32,
+        ).pack(pady=(14, 0))
+
+        self.root.bind("<Return>", lambda event: self.login())
+        self.username_entry.focus()
         self.root.mainloop()
         return self.user_id
+
+    def _toggle_password_visibility(self):
+        self._password_visible = not self._password_visible
+        self.password_entry.configure(show="" if self._password_visible else "•")
+        self._toggle_pwd_btn.configure(text="🙈" if self._password_visible else "👁")
+
+    def _render_deactivated_screen(self):
+        container = ctk.CTkFrame(self.root, fg_color="transparent")
+        container.pack(fill="both", expand=True, padx=40, pady=40)
+        ctk.CTkLabel(container, text="⛔", font=ctk.CTkFont(size=72)).pack(pady=(140, 16))
+        ctk.CTkLabel(
+            container, text="Application Deactivated",
+            font=ctk.CTkFont(size=20, weight="bold"),
+        ).pack()
+        ctk.CTkLabel(
+            container,
+            text="This application has been deactivated remotely.\nPlease contact your administrator.",
+            font=ctk.CTkFont(size=13), text_color=("gray40", "gray60"),
+        ).pack(pady=(10, 0))
+        self.root.after(4000, self.root.destroy)
+        self.root.mainloop()
     
     def login(self):
         """Handle login attempt"""
@@ -346,60 +400,87 @@ class LoginWindow:
     def show_register(self):
         """Show registration window"""
         register_window = ctk.CTkToplevel(self.root)
-        register_window.title("Register New User")
-        register_window.geometry("400x400")
-        
-        # Main frame
-        main_frame = ctk.CTkFrame(register_window)
-        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        # Title
-        title_label = ctk.CTkLabel(main_frame, text="Register New User", 
-                                 font=ctk.CTkFont(size=20, weight="bold"))
-        title_label.pack(pady=(20, 10))
-        
-        # Username
-        ctk.CTkLabel(main_frame, text="Username:", font=ctk.CTkFont(size=14)).pack(pady=(20, 5))
-        username_entry = ctk.CTkEntry(main_frame, width=300)
-        username_entry.pack(pady=(0, 10))
-        
-        # Password
-        ctk.CTkLabel(main_frame, text="Password:", font=ctk.CTkFont(size=14)).pack(pady=(10, 5))
-        password_entry = ctk.CTkEntry(main_frame, width=300, show="*")
-        password_entry.pack(pady=(0, 10))
-        
-        # Confirm Password
-        ctk.CTkLabel(main_frame, text="Confirm Password:", font=ctk.CTkFont(size=14)).pack(pady=(10, 5))
-        confirm_password_entry = ctk.CTkEntry(main_frame, width=300, show="*")
-        confirm_password_entry.pack(pady=(0, 20))
-        
-        # Register button
+        register_window.title("Create Account")
+        register_window.geometry("440x560")
+        register_window.resizable(False, False)
+        register_window.transient(self.root)
+        register_window.grab_set()
+
+        container = ctk.CTkFrame(register_window, fg_color="transparent")
+        container.pack(fill="both", expand=True, padx=40, pady=32)
+
+        ctk.CTkLabel(container, text="✨", font=ctk.CTkFont(size=44)).pack(pady=(8, 6))
+        ctk.CTkLabel(
+            container, text="Create Your Account",
+            font=ctk.CTkFont(size=20, weight="bold"),
+        ).pack()
+        ctk.CTkLabel(
+            container, text="Used to sign in and tag your transcriptions",
+            font=ctk.CTkFont(size=12), text_color=("gray40", "gray60"),
+        ).pack(pady=(2, 22))
+
+        form = ctk.CTkFrame(container, corner_radius=12)
+        form.pack(fill="x")
+
+        ctk.CTkLabel(
+            form, text="Username", font=ctk.CTkFont(size=12, weight="bold"), anchor="w",
+        ).pack(fill="x", padx=22, pady=(18, 4))
+        username_entry = ctk.CTkEntry(form, placeholder_text="Choose a username", height=38)
+        username_entry.pack(fill="x", padx=22, pady=(0, 12))
+
+        ctk.CTkLabel(
+            form, text="Password (min 6 characters)",
+            font=ctk.CTkFont(size=12, weight="bold"), anchor="w",
+        ).pack(fill="x", padx=22, pady=(4, 4))
+        password_entry = ctk.CTkEntry(
+            form, placeholder_text="Choose a password", show="•", height=38,
+        )
+        password_entry.pack(fill="x", padx=22, pady=(0, 12))
+
+        ctk.CTkLabel(
+            form, text="Confirm Password",
+            font=ctk.CTkFont(size=12, weight="bold"), anchor="w",
+        ).pack(fill="x", padx=22, pady=(4, 4))
+        confirm_password_entry = ctk.CTkEntry(
+            form, placeholder_text="Re-enter your password", show="•", height=38,
+        )
+        confirm_password_entry.pack(fill="x", padx=22, pady=(0, 20))
+
+        inline_error = ctk.CTkLabel(
+            container, text="", text_color=("#C53030", "#FC8181"),
+            font=ctk.CTkFont(size=12), height=18,
+        )
+
+        def show_error(msg):
+            inline_error.configure(text=msg)
+
         def register():
             username = username_entry.get().strip()
             password = password_entry.get().strip()
             confirm_password = confirm_password_entry.get().strip()
-            
+
             if not username or not password:
-                messagebox.showerror("Error", "Please fill in all fields")
+                show_error("Please fill in all fields")
                 return
-            
             if password != confirm_password:
-                messagebox.showerror("Error", "Passwords do not match")
+                show_error("Passwords do not match")
                 return
-            
             if len(password) < 6:
-                messagebox.showerror("Error", "Password must be at least 6 characters")
+                show_error("Password must be at least 6 characters")
                 return
-            
             if self.auth_manager.create_user(username, password):
-                messagebox.showinfo("Success", "User registered successfully!")
+                messagebox.showinfo("Success", "Account created. You can now sign in.")
                 register_window.destroy()
             else:
-                messagebox.showerror("Error", "Username already exists")
-        
-        register_button = ctk.CTkButton(main_frame, text="Register", command=register, 
-                                      height=40, width=200)
-        register_button.pack(pady=10)
+                show_error("That username is already taken")
+
+        ctk.CTkButton(
+            container, text="Create Account", command=register,
+            height=42, font=ctk.CTkFont(size=14, weight="bold"),
+        ).pack(fill="x", pady=(14, 8))
+        inline_error.pack()
+        register_window.bind("<Return>", lambda event: register())
+        username_entry.focus()
 
 class ClinicalDocumentationApp:
     """Main desktop application class"""
@@ -425,7 +506,7 @@ class ClinicalDocumentationApp:
         self.current_transcription = None
         self.whisper_model = None
 
-        # Build UI first so status_label exists when background loaders fire
+        # Build UI first so whisper_status_label exists when background loaders fire
         self.create_ui()
 
         # Now safe to spawn the Whisper loader thread and the security timer
@@ -479,172 +560,355 @@ class ClinicalDocumentationApp:
         
         threading.Thread(target=load_model, daemon=True).start()
     
+    # ----- Status bar plumbing -----------------------------------------
+
     def update_model_status(self, loaded: bool):
-        """Update UI with model loading status"""
-        if hasattr(self, 'status_label'):
-            whisper_status = "✅ Ready" if loaded else "❌ Error loading model"
-            ffmpeg_status = "✅ Available" if self.ffmpeg_available else "⚠️ Limited"
-            self.status_label.configure(text=f"Whisper: {whisper_status} | FFmpeg: {ffmpeg_status}")
-    
-    def create_ui(self):
-        """Create the main user interface"""
-        # Main container
-        main_frame = ctk.CTkFrame(self.root)
-        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        # Title
-        title_label = ctk.CTkLabel(main_frame, text="Clinical Documentation AI", 
-                                 font=ctk.CTkFont(size=24, weight="bold"))
-        title_label.pack(pady=(20, 10))
-        
-        subtitle_label = ctk.CTkLabel(main_frame, 
-            text="Record clinical encounters and generate structured medical notes",
-            font=ctk.CTkFont(size=14))
-        subtitle_label.pack(pady=(0, 20))
-        
-        # Status bar
-        self.status_label = ctk.CTkLabel(main_frame, text="Loading...")
-        self.status_label.pack(pady=(0, 20))
-        
-        # FFmpeg warning if not available
-        if not self.ffmpeg_available:
-            warning_frame = ctk.CTkFrame(main_frame, fg_color="orange")
-            warning_frame.pack(fill="x", padx=20, pady=(0, 10))
-            
-            warning_label = ctk.CTkLabel(
-                warning_frame, 
-                text="⚠️ FFmpeg not found - Only WAV files fully supported. For MP3/M4A support, install FFmpeg",
-                font=ctk.CTkFont(size=12, weight="bold"),
-                text_color="white"
+        """Background Whisper loader callback — updates the bottom status bar."""
+        self._whisper_loaded = loaded
+        if hasattr(self, "whisper_status_label"):
+            self.whisper_status_label.configure(
+                text=("Whisper · ✅ Ready" if loaded else "Whisper · ❌ Error"),
+                text_color=("#2F855A", "#68D391") if loaded else ("#C53030", "#FC8181"),
             )
-            warning_label.pack(pady=10)
-        
-        # Create notebook for tabs
-        self.notebook = ctk.CTkTabview(main_frame)
-        self.notebook.pack(fill="both", expand=True, pady=10)
-        
-        # Create tabs
-        self.create_recording_tab()
-        self.create_transcription_tab()
-        self.create_history_tab()
-    
-    def create_recording_tab(self):
-        """Create the audio recording tab"""
-        recording_tab = self.notebook.add("Recording")
-        
-        # Recording controls frame
-        controls_frame = ctk.CTkFrame(recording_tab)
-        controls_frame.pack(fill="x", padx=20, pady=20)
-        
-        # Recording button
+
+    # ----- UI construction --------------------------------------------
+
+    def create_ui(self):
+        """Top bar · two-column main area (Capture | Document) · status footer."""
+        self.root.geometry("1320x860")
+        self.root.minsize(1100, 720)
+
+        # Lookup username for the top bar (best effort).
+        info = self.db.get_user_info(self.user_id) or {}
+        self._username = info.get("username", "User")
+
+        # Recording timer state
+        self._recording_seconds = 0
+        self._recording_after_id = None
+        self._whisper_loaded = False
+
+        # Root grid: top / main / footer
+        self.root.grid_rowconfigure(1, weight=1)
+        self.root.grid_columnconfigure(0, weight=1)
+
+        self._build_top_bar(self.root)
+        body = ctk.CTkFrame(self.root, fg_color="transparent")
+        body.grid(row=1, column=0, sticky="nsew", padx=16, pady=(8, 8))
+        body.grid_rowconfigure(0, weight=1)
+        body.grid_columnconfigure(0, weight=1, minsize=480)
+        body.grid_columnconfigure(1, weight=1, minsize=540)
+        self._build_capture_pane(body)
+        self._build_document_pane(body)
+        self._build_status_bar(self.root)
+
+        # FFmpeg banner above the capture pane if missing
+        if not self.ffmpeg_available:
+            banner = ctk.CTkFrame(self.root, fg_color=("#FED7AA", "#7C2D12"))
+            banner.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 4))
+            ctk.CTkLabel(
+                banner,
+                text="⚠ FFmpeg not found — only WAV files will work. Install FFmpeg for MP3/M4A support.",
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color=("#7C2D12", "#FED7AA"),
+            ).pack(pady=6)
+
+        self._bind_shortcuts()
+
+    def _build_top_bar(self, parent):
+        bar = ctk.CTkFrame(parent, corner_radius=0, height=52, fg_color=("#FFFFFF", "#1F2024"))
+        bar.grid(row=0, column=0, sticky="ew")
+        bar.grid_propagate(False)
+        bar.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            bar, text="🩺  Clinical Documentation AI",
+            font=ctk.CTkFont(size=16, weight="bold"),
+        ).grid(row=0, column=0, sticky="w", padx=18, pady=12)
+
+        right = ctk.CTkFrame(bar, fg_color="transparent")
+        right.grid(row=0, column=2, sticky="e", padx=12, pady=8)
+
+        ctk.CTkLabel(
+            right, text=f"👤 {self._username}",
+            font=ctk.CTkFont(size=12), text_color=("gray35", "gray70"),
+        ).pack(side="left", padx=(0, 12))
+
+        ctk.CTkButton(
+            right, text="📚  History", width=104, height=32,
+            command=self._open_history_window,
+            fg_color="transparent", border_width=1,
+            border_color=("gray70", "gray35"),
+            text_color=("gray20", "gray85"),
+            hover_color=("gray90", "gray22"),
+        ).pack(side="left", padx=4)
+
+        self._theme_button = ctk.CTkButton(
+            right, text="🌙", width=36, height=32,
+            command=self._toggle_theme,
+            fg_color="transparent",
+            text_color=("gray25", "gray80"),
+            hover_color=("gray90", "gray22"),
+        )
+        self._theme_button.pack(side="left", padx=4)
+
+    def _build_capture_pane(self, parent):
+        col = ctk.CTkFrame(parent, fg_color=("#F7F8FA", "#22242A"), corner_radius=14)
+        col.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        col.grid_columnconfigure(0, weight=1)
+        col.grid_rowconfigure(2, weight=1)
+
+        # --- Section header
+        ctk.CTkLabel(
+            col, text="CAPTURE",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=("gray45", "gray60"),
+        ).grid(row=0, column=0, sticky="w", padx=20, pady=(16, 0))
+
+        # --- Recording control card
+        rec_card = ctk.CTkFrame(col, corner_radius=10)
+        rec_card.grid(row=1, column=0, sticky="ew", padx=16, pady=(8, 12))
+        rec_card.grid_columnconfigure(0, weight=1)
+
+        btn_row = ctk.CTkFrame(rec_card, fg_color="transparent")
+        btn_row.grid(row=0, column=0, sticky="ew", padx=14, pady=(14, 8))
+        btn_row.grid_columnconfigure(0, weight=2)
+        btn_row.grid_columnconfigure(1, weight=1)
+
         self.record_button = ctk.CTkButton(
-            controls_frame,
-            text="🎤 Start Recording",
+            btn_row, text="⏺  Record   (F2)",
             command=self.toggle_recording,
-            height=50,
-            font=ctk.CTkFont(size=16, weight="bold")
+            height=46, font=ctk.CTkFont(size=14, weight="bold"),
         )
-        self.record_button.pack(pady=20)
-        
-        # File upload button
-        upload_button = ctk.CTkButton(
-            controls_frame,
-            text="📁 Upload Audio File",
+        self.record_button.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+
+        ctk.CTkButton(
+            btn_row, text="📁  Upload",
             command=self.upload_audio_file,
-            height=40
+            height=46, fg_color="transparent", border_width=1,
+            border_color=("gray70", "gray35"),
+            text_color=("gray20", "gray85"),
+            hover_color=("gray90", "gray22"),
+        ).grid(row=0, column=1, sticky="ew", padx=(6, 0))
+
+        info_row = ctk.CTkFrame(rec_card, fg_color="transparent")
+        info_row.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 14))
+        info_row.grid_columnconfigure(1, weight=1)
+
+        self.timer_label = ctk.CTkLabel(
+            info_row, text="00:00",
+            font=ctk.CTkFont(size=18, weight="bold"),
+            text_color=("gray35", "gray75"), width=68, anchor="w",
         )
-        upload_button.pack(pady=10)
-        
-        # Audio file info
-        self.audio_info_label = ctk.CTkLabel(controls_frame, text="No audio file selected")
-        self.audio_info_label.pack(pady=10)
-        
-        # Transcribe button
-        self.transcribe_button = ctk.CTkButton(
-            controls_frame,
-            text="🧠 Transcribe Audio",
-            command=self.transcribe_audio,
-            state="disabled",
-            height=40
+        self.timer_label.grid(row=0, column=0, sticky="w")
+
+        self.audio_info_label = ctk.CTkLabel(
+            info_row, text="No audio loaded",
+            font=ctk.CTkFont(size=12),
+            text_color=("gray45", "gray60"), anchor="w",
         )
-        self.transcribe_button.pack(pady=10)
-        
-        # Progress bar
-        self.progress_bar = ctk.CTkProgressBar(controls_frame)
-        self.progress_bar.pack(fill="x", padx=20, pady=10)
-        self.progress_bar.set(0)
-    
-    def create_transcription_tab(self):
-        """Create the transcription results tab"""
-        transcription_tab = self.notebook.add("Transcription")
-        
-        # Transcription text area
+        self.audio_info_label.grid(row=0, column=1, sticky="ew", padx=(8, 0))
+
+        # --- Transcript editable pane
+        ctk.CTkLabel(
+            col, text="Transcript  (editable)",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=("gray35", "gray70"),
+        ).grid(row=2, column=0, sticky="nw", padx=20, pady=(4, 4))
+
         self.transcription_text = ctk.CTkTextbox(
-            transcription_tab,
-            height=300,
-            font=ctk.CTkFont(size=14)
+            col, font=ctk.CTkFont(size=13), wrap="word", corner_radius=8,
         )
-        self.transcription_text.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        # Analysis frame
-        analysis_frame = ctk.CTkFrame(transcription_tab)
-        analysis_frame.pack(fill="x", padx=20, pady=(0, 20))
-        
-        # Analyze button
+        self.transcription_text.grid(row=3, column=0, sticky="nsew", padx=16, pady=(0, 12))
+        col.grid_rowconfigure(3, weight=1)
+
+        # --- Bottom action row
+        action_row = ctk.CTkFrame(col, fg_color="transparent")
+        action_row.grid(row=4, column=0, sticky="ew", padx=16, pady=(0, 14))
+        action_row.grid_columnconfigure(0, weight=1)
+
+        self.transcribe_button = ctk.CTkButton(
+            action_row, text="🧠  Transcribe   (F3)",
+            command=self.transcribe_audio, state="disabled",
+            height=42, font=ctk.CTkFont(size=14, weight="bold"),
+        )
+        self.transcribe_button.grid(row=0, column=0, sticky="ew")
+
+        self.progress_bar = ctk.CTkProgressBar(col)
+        self.progress_bar.grid(row=5, column=0, sticky="ew", padx=16, pady=(0, 14))
+        self.progress_bar.set(0)
+
+    def _build_document_pane(self, parent):
+        col = ctk.CTkFrame(parent, fg_color=("#F7F8FA", "#22242A"), corner_radius=14)
+        col.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
+        col.grid_columnconfigure(0, weight=1)
+        col.grid_rowconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            col, text="SOAP NOTE",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=("gray45", "gray60"),
+        ).grid(row=0, column=0, sticky="w", padx=20, pady=(16, 4))
+
+        # Scrollable section list (lets all four sections fit on smaller screens)
+        sections = ctk.CTkScrollableFrame(col, fg_color="transparent")
+        sections.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0, 8))
+        sections.grid_columnconfigure(0, weight=1)
+
+        self._soap_textboxes = {}
+        for i, (key, label) in enumerate([
+            ("subjective", "Subjective"),
+            ("objective", "Objective"),
+            ("assessment", "Assessment"),
+            ("plan", "Plan"),
+        ]):
+            ctk.CTkLabel(
+                sections, text=label,
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color=("gray30", "gray80"), anchor="w",
+            ).grid(row=i * 2, column=0, sticky="ew", padx=8, pady=(8 if i else 4, 4))
+            box = ctk.CTkTextbox(
+                sections, height=120, font=ctk.CTkFont(size=13),
+                wrap="word", corner_radius=8,
+            )
+            box.grid(row=i * 2 + 1, column=0, sticky="ew", padx=8, pady=(0, 4))
+            self._soap_textboxes[key] = box
+
+        # Sticky action bar
+        action_row = ctk.CTkFrame(col, fg_color="transparent")
+        action_row.grid(row=2, column=0, sticky="ew", padx=16, pady=(8, 14))
+        action_row.grid_columnconfigure(0, weight=1)
+        action_row.grid_columnconfigure(1, weight=0)
+        action_row.grid_columnconfigure(2, weight=0)
+
         self.analyze_button = ctk.CTkButton(
-            analysis_frame,
-            text="🏥 Analyze Medical Content",
-            command=self.analyze_medical_content,
-            state="disabled",
-            height=40
+            action_row, text="🏥  Analyze   (F4)",
+            command=self.analyze_medical_content, state="disabled",
+            height=42, font=ctk.CTkFont(size=14, weight="bold"),
         )
-        self.analyze_button.pack(pady=10)
+        self.analyze_button.grid(row=0, column=0, sticky="ew", padx=(0, 6))
 
-        # Save Transcription button
-        self.save_button = ctk.CTkButton(
-            analysis_frame,
-            text="💾 Save Transcription",
-            command=self.save_transcription,
-            state="disabled",
-            height=40
-        )
-        self.save_button.pack(pady=10)
-
-        # SOAP note display
-        self.soap_text = ctk.CTkTextbox(
-            analysis_frame,
-            height=400,
-            font=ctk.CTkFont(size=14),
-            wrap="word"
-        )
-        self.soap_text.pack(fill="both", expand=False, padx=20, pady=(0, 10))       
-       
-        # Copy SOAP note button
         self.copy_button = ctk.CTkButton(
-            analysis_frame,
-            text="📋 Copy SOAP Note",
+            action_row, text="📋  Copy",
             command=self.copy_soap_text,
-            height=40
+            height=42, width=110,
+            fg_color="transparent", border_width=1,
+            border_color=("gray70", "gray35"),
+            text_color=("gray20", "gray85"),
+            hover_color=("gray90", "gray22"),
         )
-        self.copy_button.pack(pady=(10,20))
+        self.copy_button.grid(row=0, column=1, padx=6)
 
-    def create_history_tab(self):
-        """Create the transcription history tab"""
-        history_tab = self.notebook.add("History")
-        
-        # Refresh button
-        refresh_button = ctk.CTkButton(
-            history_tab,
-            text="🔄 Refresh History",
-            command=self.load_history
+        self.save_button = ctk.CTkButton(
+            action_row, text="💾  Save",
+            command=self.save_transcription, state="disabled",
+            height=42, width=128,
+            fg_color=("#2F855A", "#38A169"),
+            hover_color=("#276749", "#2F855A"),
+            font=ctk.CTkFont(size=14, weight="bold"),
         )
-        refresh_button.pack(pady=20)
-        
-        # History list
-        self.history_frame = ctk.CTkScrollableFrame(history_tab)
-        self.history_frame.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        # Load initial history
+        self.save_button.grid(row=0, column=2, padx=(6, 0))
+
+    def _build_status_bar(self, parent):
+        bar = ctk.CTkFrame(parent, height=30, corner_radius=0,
+                            fg_color=("#EFF1F4", "#1A1B1F"))
+        bar.grid(row=3, column=0, sticky="ew")
+        bar.grid_propagate(False)
+
+        self.whisper_status_label = ctk.CTkLabel(
+            bar, text="Whisper · loading…",
+            font=ctk.CTkFont(size=11),
+            text_color=("gray35", "gray70"),
+        )
+        self.whisper_status_label.pack(side="left", padx=(16, 14), pady=6)
+
+        ctk.CTkLabel(
+            bar, text=f"Ollama · gemma4",
+            font=ctk.CTkFont(size=11),
+            text_color=("gray35", "gray70"),
+        ).pack(side="left", padx=(0, 14), pady=6)
+
+        ffmpeg_text = "FFmpeg · ✅" if self.ffmpeg_available else "FFmpeg · ⚠ missing"
+        ctk.CTkLabel(
+            bar, text=ffmpeg_text,
+            font=ctk.CTkFont(size=11),
+            text_color=("gray35", "gray70"),
+        ).pack(side="left", padx=(0, 14), pady=6)
+
+        self.recording_status_label = ctk.CTkLabel(
+            bar, text="Idle",
+            font=ctk.CTkFont(size=11),
+            text_color=("gray35", "gray70"),
+        )
+        self.recording_status_label.pack(side="right", padx=16, pady=6)
+
+    # ----- Misc helpers -----------------------------------------------
+
+    def _bind_shortcuts(self):
+        self.root.bind("<F2>", lambda e: self.toggle_recording())
+        self.root.bind("<F3>", lambda e: self.transcribe_audio()
+                                  if self.transcribe_button.cget("state") == "normal" else None)
+        self.root.bind("<F4>", lambda e: self.analyze_medical_content()
+                                  if self.analyze_button.cget("state") == "normal" else None)
+        self.root.bind("<Control-s>", lambda e: self.save_transcription()
+                                  if self.save_button.cget("state") == "normal" else None)
+        self.root.bind("<Control-S>", lambda e: self.save_transcription()
+                                  if self.save_button.cget("state") == "normal" else None)
+        self.root.bind("<Control-h>", lambda e: self._open_history_window())
+        self.root.bind("<Control-H>", lambda e: self._open_history_window())
+
+    def _toggle_theme(self):
+        new_mode = "light" if ctk.get_appearance_mode() == "Dark" else "dark"
+        ctk.set_appearance_mode(new_mode)
+        self._theme_button.configure(text="☀️" if new_mode == "dark" else "🌙")
+
+    def _start_recording_timer(self):
+        self._recording_seconds = 0
+        self._tick_recording_timer()
+
+    def _tick_recording_timer(self):
+        if not self.recording:
+            return
+        mm, ss = divmod(self._recording_seconds, 60)
+        text = f"{mm:02d}:{ss:02d}"
+        self.timer_label.configure(text=text, text_color=("#C53030", "#FC8181"))
+        self.recording_status_label.configure(
+            text=f"● Recording  {text}",
+            text_color=("#C53030", "#FC8181"),
+        )
+        self._recording_seconds += 1
+        self._recording_after_id = self.root.after(1000, self._tick_recording_timer)
+
+    def _stop_recording_timer(self):
+        if self._recording_after_id is not None:
+            self.root.after_cancel(self._recording_after_id)
+            self._recording_after_id = None
+        self.timer_label.configure(text="00:00", text_color=("gray35", "gray75"))
+        self.recording_status_label.configure(
+            text="Idle", text_color=("gray35", "gray70"),
+        )
+
+    def _open_history_window(self):
+        if getattr(self, "_history_window", None) is not None and self._history_window.winfo_exists():
+            self._history_window.lift()
+            self._history_window.focus()
+            return
+        self._history_window = ctk.CTkToplevel(self.root)
+        self._history_window.title("Transcription History")
+        self._history_window.geometry("680x720")
+
+        header = ctk.CTkFrame(self._history_window, fg_color="transparent")
+        header.pack(fill="x", padx=18, pady=(16, 6))
+        ctk.CTkLabel(
+            header, text="History",
+            font=ctk.CTkFont(size=18, weight="bold"),
+        ).pack(side="left")
+        ctk.CTkButton(
+            header, text="🔄  Refresh", width=100, height=32,
+            command=self.load_history,
+        ).pack(side="right")
+
+        self.history_frame = ctk.CTkScrollableFrame(self._history_window)
+        self.history_frame.pack(fill="both", expand=True, padx=14, pady=(4, 14))
         self.load_history()
     
     def toggle_recording(self):
@@ -658,14 +922,16 @@ class ClinicalDocumentationApp:
         """Start audio recording"""
         if self.recorder.start_recording():
             self.recording = True
-            self.record_button.configure(text="⏹️ Stop Recording")
-            self.record_button.configure(fg_color="red")
-            
-            # Start recording in background thread
+            self.record_button.configure(
+                text="⏹  Stop   (F2)",
+                fg_color=("#C53030", "#9B2C2C"),
+                hover_color=("#9B2C2C", "#742A2A"),
+            )
+            self._start_recording_timer()
             threading.Thread(target=self.recorder.record_audio, daemon=True).start()
         else:
             messagebox.showerror("Error", "Failed to start recording. Please check your microphone.")
-    
+
     def stop_recording(self):
         """Stop audio recording"""
         tf = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
@@ -673,11 +939,17 @@ class ClinicalDocumentationApp:
         temp_file = tf.name
         if self.recorder.stop_recording(temp_file):
             self.recording = False
-            self.record_button.configure(text="🎤 Start Recording")
-            self.record_button.configure(fg_color=["#3B8ED0", "#1F6AA5"])
-            
+            self._stop_recording_timer()
+            self.record_button.configure(
+                text="⏺  Record   (F2)",
+                fg_color=["#3B8ED0", "#1F6AA5"],
+                hover_color=("#36719F", "#144870"),
+            )
             self.current_audio_file = temp_file
-            self.audio_info_label.configure(text=f"Recorded audio ready: {os.path.basename(temp_file)}")
+            self.audio_info_label.configure(
+                text=f"Recorded · {os.path.basename(temp_file)}",
+                text_color=("gray25", "gray80"),
+            )
             self.transcribe_button.configure(state="normal")
         else:
             messagebox.showerror("Error", "Failed to stop recording.")
@@ -694,7 +966,10 @@ class ClinicalDocumentationApp:
         
         if file_path:
             self.current_audio_file = file_path
-            self.audio_info_label.configure(text=f"Audio file: {os.path.basename(file_path)}")
+            self.audio_info_label.configure(
+                text=f"Loaded · {os.path.basename(file_path)}",
+                text_color=("gray25", "gray80"),
+            )
             self.transcribe_button.configure(state="normal")
     
     def transcribe_audio(self):
@@ -813,40 +1088,44 @@ class ClinicalDocumentationApp:
         threading.Thread(target=transcribe_worker, daemon=True).start()
     
     def update_transcription_ui(self, transcription_data):
-        """Update UI with transcription results"""
+        """Populate the editable transcript pane and unlock downstream actions."""
         self.current_transcription = transcription_data
-        
-        # Update transcription text
+
         self.transcription_text.delete("1.0", "end")
         self.transcription_text.insert("1.0", transcription_data['text'])
-        
-        # Switch to transcription tab
-        self.notebook.set("Transcription")
-        
-        # Enable analysis and save buttons
+
         self.analyze_button.configure(state="normal")
         self.save_button.configure(state="normal")
-        
-        # Reset transcribe button
-        self.transcribe_button.configure(state="normal", text="🧠 Transcribe Audio")
+        self.transcribe_button.configure(state="normal", text="🧠  Transcribe   (F3)")
         self.progress_bar.set(1.0)
-        
-        messagebox.showinfo("Success", f"Transcription completed!\nLanguage: {transcription_data['language']}")
+
+        lang = transcription_data.get('language', 'unknown')
+        self.recording_status_label.configure(
+            text=f"Transcribed · language: {lang}",
+            text_color=("#2F855A", "#68D391"),
+        )
 
     def copy_soap_text(self):
-        """Copy the contents of the SOAP note textbox to the clipboard."""
-        text = self.soap_text.get("1.0", "end").strip()
-        if text:
+        """Concatenate the four SOAP sections from their textboxes and copy."""
+        parts = []
+        for key, label in (("subjective", "SUBJECTIVE"), ("objective", "OBJECTIVE"),
+                            ("assessment", "ASSESSMENT"), ("plan", "PLAN")):
+            text = self._soap_textboxes[key].get("1.0", "end").strip()
+            if text:
+                parts.append(f"{label}:\n{text}")
+        assembled = "\n\n".join(parts)
+        if assembled:
             self.root.clipboard_clear()
-            self.root.clipboard_append(text)
-            messagebox.showinfo("Copied", "SOAP note copied to clipboard!")
+            self.root.clipboard_append(assembled)
+            messagebox.showinfo("Copied", "SOAP note copied to clipboard.")
         else:
-            messagebox.showwarning("No Content", "SOAP note is empty and cannot be copied.")
-    
+            messagebox.showwarning("No Content", "SOAP note is empty.")
+
     def transcription_error(self, error_msg):
         """Handle transcription error"""
-        self.transcribe_button.configure(state="normal", text="🧠 Transcribe Audio")
+        self.transcribe_button.configure(state="normal", text="🧠  Transcribe   (F3)")
         self.progress_bar.set(0)
+        self.recording_status_label.configure(text="Idle", text_color=("gray35", "gray70"))
         messagebox.showerror("Transcription Error", f"Failed to transcribe audio:\n{error_msg}")
     
     def analyze_medical_content(self):
@@ -870,132 +1149,145 @@ class ClinicalDocumentationApp:
         threading.Thread(target=analyze_worker, daemon=True).start()
 
     def _on_analysis_complete(self, analysis):
-        """Marshal analyze_worker's result back into the UI thread."""
+        """Populate each editable SOAP section with the LLM output."""
         self.current_transcription.update(analysis)
 
         soap_note = analysis['soap_note']
-        soap_text = f"""SUBJECTIVE:
-{soap_note['subjective']}
+        for key in ("subjective", "objective", "assessment", "plan"):
+            box = self._soap_textboxes[key]
+            box.delete("1.0", "end")
+            box.insert("1.0", soap_note.get(key, ""))
 
-OBJECTIVE:
-{soap_note['objective']}
-
-ASSESSMENT:
-{soap_note['assessment']}
-
-PLAN:
-{soap_note['plan']}
-
-
-"""
-        self.soap_text.delete("1.0", "end")
-        self.soap_text.insert("1.0", soap_text)
-
-        self.analyze_button.configure(state="normal", text="🏥 Analyze Medical Content")
-        messagebox.showinfo(
-            "Analysis Complete",
-            f"Found {len(analysis['medical_keywords'])} medical keywords",
+        self.analyze_button.configure(state="normal", text="🏥  Analyze   (F4)")
+        self.recording_status_label.configure(
+            text=f"Analyzed · {len(analysis['medical_keywords'])} keywords",
+            text_color=("#2F855A", "#68D391"),
         )
 
     def _on_analysis_error(self, error_msg):
         """Restore the UI when the analyze worker fails."""
-        self.analyze_button.configure(state="normal", text="🏥 Analyze Medical Content")
+        self.analyze_button.configure(state="normal", text="🏥  Analyze   (F4)")
         messagebox.showerror("Analysis Error", f"Failed to analyze content:\n{error_msg}")
     
     def save_transcription(self):
-        """Save transcription to database"""
+        """Save transcription + the (possibly clinician-edited) SOAP sections."""
         if not self.current_transcription:
             return
-        
+
+        # Pick up any edits made directly in the transcript and SOAP textboxes
+        # before persisting. The user can correct the LLM's output before save.
+        edited_transcript = self.transcription_text.get("1.0", "end").strip()
+        if edited_transcript:
+            self.current_transcription['text'] = edited_transcript
+
+        soap_note = self.current_transcription.get('soap_note') or {}
+        for key in ("subjective", "objective", "assessment", "plan"):
+            soap_note[key] = self._soap_textboxes[key].get("1.0", "end").strip()
+        self.current_transcription['soap_note'] = soap_note
+
         try:
-            # Add user_id to transcription data
             self.current_transcription['user_id'] = self.user_id
             transcription_id = self.db.save_transcription(self.current_transcription)
-            messagebox.showinfo("Success", f"Transcription saved!\nID: {transcription_id}")
-            self.load_history()  # Refresh history
+            messagebox.showinfo("Saved", f"Transcription saved.\nID: {transcription_id}")
+            if getattr(self, "_history_window", None) is not None and self._history_window.winfo_exists():
+                self.load_history()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save transcription:\n{str(e)}")
-    
+
     def load_history(self):
-        """Load and display transcription history"""
-        # Clear existing history
+        """Render history list inside the history window's scrollable frame."""
+        if not getattr(self, "history_frame", None) or not self.history_frame.winfo_exists():
+            return
+
         for widget in self.history_frame.winfo_children():
             widget.destroy()
-        
-        # Load transcriptions for current user
+
         transcriptions = self.db.get_transcriptions(self.user_id)
-        
+
         if not transcriptions:
-            no_data_label = ctk.CTkLabel(self.history_frame, text="No transcriptions found")
-            no_data_label.pack(pady=20)
+            empty = ctk.CTkFrame(self.history_frame, fg_color="transparent")
+            empty.pack(fill="x", pady=40)
+            ctk.CTkLabel(empty, text="📭", font=ctk.CTkFont(size=42)).pack(pady=(0, 8))
+            ctk.CTkLabel(
+                empty, text="No transcriptions yet",
+                font=ctk.CTkFont(size=14, weight="bold"),
+            ).pack()
+            ctk.CTkLabel(
+                empty,
+                text="Record or upload audio, transcribe, then save to start a record.",
+                font=ctk.CTkFont(size=12),
+                text_color=("gray45", "gray60"),
+            ).pack(pady=(2, 0))
             return
-        
-        # Display transcriptions
+
         for trans in transcriptions:
-            trans_frame = ctk.CTkFrame(self.history_frame)
-            trans_frame.pack(fill="x", padx=10, pady=5)
-            
-            # Transcription info
-            info_label = ctk.CTkLabel(
-                trans_frame,
-                text=f"📄 {trans['filename']} | {trans['created_at']} | {trans['status']}",
-                font=ctk.CTkFont(weight="bold")
-            )
-            info_label.pack(anchor="w", padx=10, pady=5)
-            
-            # Preview text
-            preview_label = ctk.CTkLabel(
-                trans_frame,
-                text=trans['text'],
-                wraplength=800
-            )
-            preview_label.pack(anchor="w", padx=10, pady=5)
-            
-            # View button
-            view_button = ctk.CTkButton(
-                trans_frame,
-                text="👁️ View Details",
+            card = ctk.CTkFrame(self.history_frame, corner_radius=10)
+            card.pack(fill="x", padx=4, pady=6)
+
+            top = ctk.CTkFrame(card, fg_color="transparent")
+            top.pack(fill="x", padx=14, pady=(10, 0))
+
+            ctk.CTkLabel(
+                top, text=f"📄  {trans['filename']}",
+                font=ctk.CTkFont(size=13, weight="bold"), anchor="w",
+            ).pack(side="left")
+
+            ctk.CTkLabel(
+                top, text=str(trans['created_at']),
+                font=ctk.CTkFont(size=11),
+                text_color=("gray45", "gray60"),
+            ).pack(side="right")
+
+            ctk.CTkLabel(
+                card, text=trans['text'] or "(empty transcription)",
+                wraplength=580, justify="left", anchor="w",
+                font=ctk.CTkFont(size=12),
+                text_color=("gray30", "gray75"),
+            ).pack(anchor="w", padx=14, pady=(4, 6))
+
+            actions = ctk.CTkFrame(card, fg_color="transparent")
+            actions.pack(fill="x", padx=10, pady=(0, 10))
+            ctk.CTkButton(
+                actions, text="Open  →", width=90, height=28,
                 command=lambda t_id=trans['id']: self.view_transcription(t_id),
-                width=120
-            )
-            view_button.pack(anchor="e", padx=10, pady=5)
-    
+            ).pack(side="right")
+
     def view_transcription(self, transcription_id: str):
-        """View detailed transcription"""
+        """Open a detail window with the transcript and the four SOAP sections."""
         transcription = self.db.get_transcription_by_id(transcription_id)
         if not transcription:
             messagebox.showerror("Error", "Transcription not found")
             return
-        
-        # Create detail window
-        detail_window = ctk.CTkToplevel(self.root)
-        detail_window.title(f"Transcription Details - {transcription['filename']}")
-        detail_window.geometry("800x600")
-        
-        # Transcription text
-        text_area = ctk.CTkTextbox(detail_window, height=300)
-        text_area.pack(fill="both", expand=True, padx=20, pady=20)
-        text_area.insert("1.0", transcription['text'])
-        
-        # SOAP note if available
-        if transcription['soap_note']:
-            soap_label = ctk.CTkLabel(detail_window, text="SOAP Note:", 
-                                    font=ctk.CTkFont(size=16, weight="bold"))
-            soap_label.pack(anchor="w", padx=20, pady=(10, 5))
-            
-            soap_area = ctk.CTkTextbox(detail_window, height=200)
-            soap_area.pack(fill="x", padx=20, pady=(0, 20))
-            
-            soap_note = transcription['soap_note']
-            soap_text = f"""SUBJECTIVE: {soap_note.get('subjective', 'N/A')}
 
-OBJECTIVE: {soap_note.get('objective', 'N/A')}
+        win = ctk.CTkToplevel(self.root)
+        win.title(f"{transcription['filename']}  ·  {transcription['created_at']}")
+        win.geometry("780x700")
 
-ASSESSMENT: {soap_note.get('assessment', 'N/A')}
+        body = ctk.CTkScrollableFrame(win)
+        body.pack(fill="both", expand=True, padx=14, pady=14)
 
-PLAN: {soap_note.get('plan', 'N/A')}"""
-            
-            soap_area.insert("1.0", soap_text)
+        ctk.CTkLabel(
+            body, text="Transcript",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=("gray35", "gray70"), anchor="w",
+        ).pack(fill="x", padx=2, pady=(0, 4))
+        t_box = ctk.CTkTextbox(body, height=180, font=ctk.CTkFont(size=13), wrap="word")
+        t_box.pack(fill="x", padx=2, pady=(0, 14))
+        t_box.insert("1.0", transcription['text'] or "")
+        t_box.configure(state="disabled")
+
+        soap_note = transcription.get('soap_note') or {}
+        for key, label in (("subjective", "Subjective"), ("objective", "Objective"),
+                            ("assessment", "Assessment"), ("plan", "Plan")):
+            ctk.CTkLabel(
+                body, text=label,
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color=("gray35", "gray70"), anchor="w",
+            ).pack(fill="x", padx=2, pady=(6, 4))
+            box = ctk.CTkTextbox(body, height=110, font=ctk.CTkFont(size=13), wrap="word")
+            box.pack(fill="x", padx=2, pady=(0, 4))
+            box.insert("1.0", soap_note.get(key, ""))
+            box.configure(state="disabled")
     
     def run(self):
         """Start the application"""
