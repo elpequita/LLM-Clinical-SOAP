@@ -418,21 +418,19 @@ class ClinicalDocumentationApp:
         
         # Setup FFmpeg
         self.ffmpeg_available = self.setup_ffmpeg()
-        
-        # Load Whisper model
-        self.whisper_model = None
-        self.load_whisper_model()
-        
-        # UI State
+
+        # UI state must exist before create_ui references any of it
         self.recording = False
         self.current_audio_file = None
         self.current_transcription = None
-        
-        # Start security check timer
-        self.start_security_timer()
-        
-        # Create UI
+        self.whisper_model = None
+
+        # Build UI first so status_label exists when background loaders fire
         self.create_ui()
+
+        # Now safe to spawn the Whisper loader thread and the security timer
+        self.load_whisper_model()
+        self.start_security_timer()
     
     def setup_ffmpeg(self):
         """Setup FFmpeg for Whisper"""
@@ -852,15 +850,29 @@ class ClinicalDocumentationApp:
         messagebox.showerror("Transcription Error", f"Failed to transcribe audio:\n{error_msg}")
     
     def analyze_medical_content(self):
-        """Analyze transcription for medical content"""
+        """Analyze transcription for medical content (Ollama call runs in a worker thread)"""
         if not self.current_transcription:
             return
-        
-        # Analyze text
-        analysis = self.analyzer.analyze_text(self.current_transcription['text'])
+
+        # Disable the button while the LLM runs — Ollama can take up to the
+        # configured timeout (120s) and would otherwise freeze the UI.
+        self.analyze_button.configure(state="disabled", text="Analyzing...")
+
+        text = self.current_transcription['text']
+
+        def analyze_worker():
+            try:
+                analysis = self.analyzer.analyze_text(text)
+                self.root.after(0, self._on_analysis_complete, analysis)
+            except Exception as e:
+                self.root.after(0, self._on_analysis_error, str(e))
+
+        threading.Thread(target=analyze_worker, daemon=True).start()
+
+    def _on_analysis_complete(self, analysis):
+        """Marshal analyze_worker's result back into the UI thread."""
         self.current_transcription.update(analysis)
-        
-        # Update SOAP note display
+
         soap_note = analysis['soap_note']
         soap_text = f"""SUBJECTIVE:
 {soap_note['subjective']}
@@ -876,12 +888,19 @@ PLAN:
 
 
 """
-        
         self.soap_text.delete("1.0", "end")
         self.soap_text.insert("1.0", soap_text)
-        
-        messagebox.showinfo("Analysis Complete", 
-                          f"Found {len(analysis['medical_keywords'])} medical keywords")
+
+        self.analyze_button.configure(state="normal", text="🏥 Analyze Medical Content")
+        messagebox.showinfo(
+            "Analysis Complete",
+            f"Found {len(analysis['medical_keywords'])} medical keywords",
+        )
+
+    def _on_analysis_error(self, error_msg):
+        """Restore the UI when the analyze worker fails."""
+        self.analyze_button.configure(state="normal", text="🏥 Analyze Medical Content")
+        messagebox.showerror("Analysis Error", f"Failed to analyze content:\n{error_msg}")
     
     def save_transcription(self):
         """Save transcription to database"""
