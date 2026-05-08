@@ -169,20 +169,20 @@ def test_audio_dependencies():
     except Exception as e:
         print(f"⚠️ PyAudio warning: {e}")
     
-    # Test Whisper
+    # Test Whisper (faster-whisper / CTranslate2)
     try:
-        import whisper
-        print("✅ Whisper is available")
-        
-        # Try loading base model
+        from faster_whisper import WhisperModel
+        print("✅ faster-whisper is available")
+
+        # Try loading the configured model. First-run downloads ~800 MB.
         try:
-            model = whisper.load_model("base")
-            print("✅ Whisper base model loaded successfully")
+            model = WhisperModel("large-v3-turbo", device="auto", compute_type="int8")
+            print("✅ Whisper large-v3-turbo loaded successfully")
         except Exception as e:
             print(f"⚠️ Whisper model loading warning: {e}")
     except ImportError:
-        print("❌ Whisper not installed")
-        print("💡 Install with: pip install openai-whisper")
+        print("❌ faster-whisper not installed")
+        print("💡 Install with: pip install faster-whisper")
         return False
     
     # Test Pydub
