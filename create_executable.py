@@ -259,7 +259,7 @@ def create_distribution_package():
 
 3. **Install Ollama**
    - Download from: https://ollama.ai/
-   - Install and run: `ollama pull llama3.2`
+   - Install and run: `ollama pull gemma4`
 
 4. **Start Activation Service**
    - Run: `python activation_service.py`

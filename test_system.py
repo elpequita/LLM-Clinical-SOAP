@@ -122,18 +122,18 @@ def test_ollama_connection():
             print("✅ Ollama service is running")
             print(f"✅ Available models: {', '.join(status['models'])}")
             
-            if 'llama3.2' in status['models']:
-                print("✅ llama3.2 model is available")
+            if 'gemma4' in status['models']:
+                print("✅ gemma4 model is available")
             else:
-                print("⚠️ llama3.2 model not found")
-                print("💡 Run: ollama pull llama3.2")
+                print("⚠️ gemma4 model not found")
+                print("💡 Run: ollama pull gemma4")
             
             return True
         else:
             print(f"❌ Ollama not running: {status['message']}")
             print("💡 Start Ollama service and pull model:")
             print("   ollama serve")
-            print("   ollama pull llama3.2")
+            print("   ollama pull gemma4")
             return False
             
     except ImportError:
@@ -268,7 +268,7 @@ def main():
     print("Make sure you have run the setup scripts first:\n")
     print("1. python install_dependencies.py")
     print("2. python setup_mysql.py")
-    print("3. ollama pull llama3.2")
+    print("3. ollama pull gemma4")
     print("4. python activation_service.py (in another terminal)")
     print("\nStarting tests...\n")
     

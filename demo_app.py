@@ -129,7 +129,7 @@ class MockLLMUtils:
     def check_ollama_status() -> Dict:
         return {
             'status': 'running',
-            'models': ['llama3.2'],
+            'models': ['gemma4'],
             'message': 'Mock Ollama service running'
         }
 
@@ -328,7 +328,7 @@ def main():
     print("\n📋 NEXT STEPS:")
     print("   1. Install dependencies: python install_dependencies.py")
     print("   2. Setup MySQL: python setup_mysql.py")
-    print("   3. Install Ollama and model: ollama pull llama3.2")
+    print("   3. Install Ollama and model: ollama pull gemma4")
     print("   4. Start activation service: python activation_service.py")
     print("   5. Run application: python clinical_app.py")
     print("   6. Create executable: python create_executable.py")

@@ -40,7 +40,7 @@ python setup_mysql.py
 ```bash
 # Download from https://ollama.ai/
 # Then install the model:
-ollama pull llama3.2
+ollama pull gemma4
 ```
 
 ### 4. Start Activation Service
@@ -92,7 +92,7 @@ python clinical_app.py
 
 4. **Install Ollama Model**
    ```bash
-   ollama pull llama3.2
+   ollama pull gemma4
    ```
 
 5. **Start Activation Service**
