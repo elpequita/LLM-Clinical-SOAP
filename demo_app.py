@@ -4,7 +4,7 @@ Demo script to show the desktop application structure without external dependenc
 
 import json
 import uuid
-import hashlib
+import bcrypt
 import time
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -18,7 +18,7 @@ class MockDatabaseManager:
             'transcriptions': {},
             'settings': {
                 'app_active': 'true',
-                'api_key': 'clinical_api_key_2025'
+                'api_key': '<set via CLINICAL_API_KEY env var>'
             }
         }
         print("✅ Mock Database initialized")
@@ -52,7 +52,7 @@ class MockAuthManager:
         print("✅ Mock Auth Manager initialized")
     
     def hash_password(self, password: str) -> str:
-        return hashlib.sha256(password.encode()).hexdigest()
+        return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
     
     def create_user(self, username: str, password: str) -> bool:
         if username in self.db.data['users']:

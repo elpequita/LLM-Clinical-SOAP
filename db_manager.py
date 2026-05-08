@@ -125,11 +125,24 @@ class DatabaseManager:
                 VALUES (%s, 'app_active', 'true')
             """, (str(uuid.uuid4()),))
             
-            # Insert default API key
-            cursor.execute("""
-                INSERT IGNORE INTO app_settings (id, setting_key, setting_value) 
-                VALUES (%s, 'api_key', 'clinical_api_key_2025')
-            """, (str(uuid.uuid4()),))
+            # Seed API key from env (CLINICAL_API_KEY) — first value if comma-separated.
+            # If not set, leave the row absent so security_manager fails closed instead
+            # of authenticating with a hardcoded key.
+            seed_key_raw = os.environ.get("CLINICAL_API_KEY", "").strip()
+            seed_key = seed_key_raw.split(",", 1)[0].strip() if seed_key_raw else ""
+            if seed_key:
+                cursor.execute(
+                    """
+                    INSERT IGNORE INTO app_settings (id, setting_key, setting_value)
+                    VALUES (%s, 'api_key', %s)
+                    """,
+                    (str(uuid.uuid4()), seed_key),
+                )
+            else:
+                print(
+                    "WARNING: CLINICAL_API_KEY not set; api_key row was not seeded. "
+                    "Activation calls will fail until you set the env var and re-seed."
+                )
             
             cursor.close()
             temp_connection.close()

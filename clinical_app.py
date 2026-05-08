@@ -131,8 +131,11 @@ class AudioProcessor:
     def preprocess_audio_for_whisper(audio_file):
         """Preprocess audio file for Whisper with error handling"""
         try:
-            # Create temporary WAV file
-            temp_wav = tempfile.mktemp(suffix='.wav')
+            # Create temporary WAV file (NamedTemporaryFile avoids the mktemp
+            # TOCTOU race that could let another process replace the file).
+            tf = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
+            tf.close()
+            temp_wav = tf.name
             
             # Convert to proper format
             if AudioProcessor.convert_audio_format(audio_file, temp_wav):
@@ -667,7 +670,9 @@ class ClinicalDocumentationApp:
     
     def stop_recording(self):
         """Stop audio recording"""
-        temp_file = tempfile.mktemp(suffix=".wav")
+        tf = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        tf.close()
+        temp_file = tf.name
         if self.recorder.stop_recording(temp_file):
             self.recording = False
             self.record_button.configure(text="🎤 Start Recording")
@@ -797,12 +802,12 @@ class ClinicalDocumentationApp:
                     error_msg = "All transcription methods failed:\n" + "\n".join(errors)
                     self.root.after(0, self.transcription_error, error_msg)
                 
-                # Clean up temporary file
+                # Clean up temporary file (PHI audio — best effort, log on failure)
                 if processed_file != self.current_audio_file and os.path.exists(processed_file):
                     try:
                         os.unlink(processed_file)
-                    except:
-                        pass
+                    except OSError as cleanup_err:
+                        print(f"Warning: could not delete temp audio {processed_file}: {cleanup_err}")
                 
             except Exception as e:
                 self.root.after(0, self.transcription_error, str(e))

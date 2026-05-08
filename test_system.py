@@ -14,8 +14,11 @@ def test_activation_service():
     print("="*40)
     
     activation_url = "http://localhost:5000"
-    api_key = "clinical_api_key_2025"
-    admin_key = "admin_key_2025"
+    api_key = (os.environ.get("CLINICAL_API_KEY", "").split(",")[0]).strip()
+    admin_key = os.environ.get("CLINICAL_ADMIN_KEY", "").strip()
+    if not api_key or not admin_key:
+        print("⏭️  Skipping activation tests: CLINICAL_API_KEY/CLINICAL_ADMIN_KEY not set")
+        return True
     
     try:
         # Test health endpoint
