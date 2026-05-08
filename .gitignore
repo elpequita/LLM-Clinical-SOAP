@@ -36,6 +36,7 @@ dist
 *token.json*
 *credentials.json*
 db_config.json
+activation_state.json
 
 # Logs and debug files
 npm-debug.log*

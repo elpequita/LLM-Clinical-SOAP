@@ -2,6 +2,7 @@
 LLM utilities for generating SOAP notes using Ollama
 """
 
+import re
 import requests
 import json
 from typing import Dict, Optional
@@ -10,6 +11,35 @@ from typing import Dict, Optional
 # in this process, skip the /api/tags + /api/pull preflight on subsequent
 # calls. Reset for a model when a generate call fails so we re-verify.
 _verified_models: set = set()
+
+# Section header → SOAP key mapping. Longer phrases first so "clinical
+# impression" wins over "impression" when both could match.
+_SOAP_HEADERS = (
+    ("clinical impression", "assessment"),
+    ("patient reports", "subjective"),
+    ("patient states", "subjective"),
+    ("physical exam", "objective"),
+    ("recommendations", "plan"),
+    ("next steps", "plan"),
+    ("examination", "objective"),
+    ("subjective", "subjective"),
+    ("assessment", "assessment"),
+    ("impression", "assessment"),
+    ("diagnosis", "assessment"),
+    ("objective", "objective"),
+    ("treatment", "plan"),
+    ("findings", "objective"),
+    ("subject", "subjective"),
+    ("plan", "plan"),
+)
+
+# Compiled once at import time. Header keywords are word-boundary anchored
+# and require a trailing colon, matching the original heuristic.
+_HEADER_PATTERN = re.compile(
+    r"\b(" + "|".join(re.escape(kw) for kw, _ in _SOAP_HEADERS) + r")\s*:",
+    re.IGNORECASE,
+)
+_HEADER_TO_SECTION = {kw.lower(): section for kw, section in _SOAP_HEADERS}
 
 
 class OllamaError(Exception):
@@ -153,49 +183,29 @@ def parse_structured_text(text: str, original_text: str) -> Dict[str, str]:
     """
     Parse structured text response when JSON parsing fails
     """
-    soap_note = {
-        'subjective': '',
-        'objective': '',
-        'assessment': '',
-        'plan': ''
-    }
-    
-    # Try to extract sections from text
-    text_lower = text.lower()
-    sections = {
-        'subjective': ['subjective:', 'subject:', 'patient reports:', 'patient states:'],
-        'objective': ['objective:', 'physical exam:', 'examination:', 'findings:'],
-        'assessment': ['assessment:', 'impression:', 'diagnosis:', 'clinical impression:'],
-        'plan': ['plan:', 'treatment:', 'recommendations:', 'next steps:']
-    }
-    
-    for section, keywords in sections.items():
-        for keyword in keywords:
-            if keyword in text_lower:
-                start_idx = text_lower.find(keyword)
-                # Find the end of this section (next section or end of text)
-                end_idx = len(text)
-                for other_section, other_keywords in sections.items():
-                    if other_section != section:
-                        for other_keyword in other_keywords:
-                            keyword_idx = text_lower.find(other_keyword, start_idx + len(keyword))
-                            if keyword_idx != -1 and keyword_idx < end_idx:
-                                end_idx = keyword_idx
-                
-                content = text[start_idx + len(keyword):end_idx].strip()
-                if content:
-                    soap_note[section] = content
-                break
-    
-    # If no structured content found, provide basic fallback
+    soap_note = {"subjective": "", "objective": "", "assessment": "", "plan": ""}
+
+    # Single linear scan of all SOAP-header matches, then slice the text
+    # between consecutive headers. First match per section wins (matches
+    # the original heuristic).
+    matches = list(_HEADER_PATTERN.finditer(text))
+    for i, m in enumerate(matches):
+        section = _HEADER_TO_SECTION.get(m.group(1).lower())
+        if not section or soap_note[section]:
+            continue
+        next_start = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        content = text[m.end():next_start].strip()
+        if content:
+            soap_note[section] = content
+
     if not any(soap_note.values()):
-        soap_note = {
-            'subjective': f"Patient encounter documented: {original_text[:200]}{'...' if len(original_text) > 200 else ''}",
-            'objective': "Physical examination findings to be documented by healthcare provider",
-            'assessment': "Clinical assessment to be completed by healthcare provider",
-            'plan': "Treatment plan to be determined by healthcare provider"
+        return {
+            "subjective": f"Patient encounter documented: {original_text[:200]}{'...' if len(original_text) > 200 else ''}",
+            "objective": "Physical examination findings to be documented by healthcare provider",
+            "assessment": "Clinical assessment to be completed by healthcare provider",
+            "plan": "Treatment plan to be determined by healthcare provider",
         }
-    
+
     return soap_note
 
 def check_ollama_status() -> Dict[str, any]:
