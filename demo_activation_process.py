@@ -60,7 +60,7 @@ def demo_application_management():
     print("   ├── Activation service must be running")
     print("   ├── Start with: python activation_service.py")
     print("   ├── Service runs on http://localhost:5000")
-    print("   └── Uses admin API key: admin_key_2025")
+    print("   └── Uses admin API key from CLINICAL_ADMIN_KEY env var")
     
     print("\n2️⃣ DEACTIVATING ENTIRE APPLICATION:")
     print("   Steps:")
@@ -128,7 +128,7 @@ def demo_verification_process():
     print("   └── See: 🟢 ACTIVE or 🔴 INACTIVE")
     print()
     print("   Method 2 - Direct API:")
-    print("   ├── curl -H 'Authorization: Bearer clinical_api_key_2025' \\")
+    print("   ├── curl -H \"Authorization: Bearer $CLINICAL_API_KEY\" \\")
     print("   ├──      http://localhost:5000/api/check_activation")
     print("   └── Returns JSON with 'active' field")
     print()
@@ -150,7 +150,7 @@ def demo_emergency_procedures():
     print()
     print("   Quick Method:")
     print("   ├── curl -X POST http://localhost:5000/admin/deactivate \\")
-    print("   ├──      -H 'Authorization: Bearer admin_key_2025'")
+    print("   ├──      -H \"Authorization: Bearer $CLINICAL_ADMIN_KEY\"")
     print("   ├── All apps will close within 5 minutes")
     print("   └── New launches immediately blocked")
     

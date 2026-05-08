@@ -128,9 +128,14 @@ The activation service provides:
 - API key validation
 
 **API Keys:**
-- User Key: `clinical_api_key_2025`
-- Admin Key: `admin_key_2025`
-- Backup Key: `backup_key_2025`
+The activation service reads keys from environment variables. Generate keys
+with `python -c "import secrets; print(secrets.token_hex(32))"` and set:
+
+- `CLINICAL_API_KEY` — user key the desktop app uses (comma-separate to allow multiple)
+- `CLINICAL_ADMIN_KEY` — admin key for `/api/set_activation` and `/admin/*` endpoints
+
+You can either export them in your shell or copy `.env.example` to `.env` and
+fill in the values. The activation service refuses to start if either is unset.
 
 ### Activation Endpoints
 - `GET /api/check_activation` - Check activation status
@@ -257,19 +262,19 @@ clinical-documentation-ai/
 **Check Activation**
 ```bash
 GET /api/check_activation
-Authorization: Bearer clinical_api_key_2025
+Authorization: Bearer $CLINICAL_API_KEY
 ```
 
 **Activate Application (Admin)**
 ```bash
 POST /admin/activate
-Authorization: Bearer admin_key_2025
+Authorization: Bearer $CLINICAL_ADMIN_KEY
 ```
 
 **Deactivate Application (Admin)**
 ```bash
 POST /admin/deactivate
-Authorization: Bearer admin_key_2025
+Authorization: Bearer $CLINICAL_ADMIN_KEY
 ```
 
 ## 📊 Database Schema

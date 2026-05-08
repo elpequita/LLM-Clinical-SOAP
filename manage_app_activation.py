@@ -3,18 +3,32 @@ Application Activation Management Script
 Handles remote activation/deactivation of the entire application
 """
 
+import os
+import sys
 import requests
 import json
 from datetime import datetime
 from typing import Dict, Optional
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 class AppActivationManager:
     """Manage application-wide activation/deactivation"""
-    
+
     def __init__(self, activation_url: str = "http://localhost:5000"):
         self.activation_url = activation_url
-        self.user_api_key = "clinical_api_key_2025"
-        self.admin_api_key = "admin_key_2025"
+        self.user_api_key = (os.environ.get("CLINICAL_API_KEY", "").split(",")[0]).strip()
+        self.admin_api_key = os.environ.get("CLINICAL_ADMIN_KEY", "").strip()
+        if not self.user_api_key or not self.admin_api_key:
+            sys.stderr.write(
+                "FATAL: CLINICAL_API_KEY and CLINICAL_ADMIN_KEY must be set "
+                "(via environment or .env file). See .env.example.\n"
+            )
+            sys.exit(1)
     
     def check_activation_service(self) -> bool:
         """Check if activation service is running"""

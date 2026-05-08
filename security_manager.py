@@ -37,7 +37,12 @@ class SecurityManager:
             # Check remote activation service
             api_key = self.db.get_setting('api_key')
             if not api_key:
-                api_key = "clinical_api_key_2025"
+                # Fail closed: no api_key configured means we can't authenticate
+                # to the activation service. Don't fall back to a known constant.
+                print("Error: api_key not set in app_settings; cannot contact activation service")
+                self.cached_status = False
+                self.last_check = current_time
+                return False
             
             response = requests.get(
                 self.activation_url,
@@ -77,10 +82,11 @@ class SecurityManager:
             return self.cached_status
         except Exception as e:
             print(f"Error checking activation: {e}")
-            # Default to active if there's an error
-            self.cached_status = True
+            # Fail closed on unexpected errors — for an access control,
+            # the safe default is to deny rather than allow.
+            self.cached_status = False
             self.last_check = current_time
-            return True
+            return False
     
     def deactivate_locally(self) -> bool:
         """Deactivate application locally"""
