@@ -7,8 +7,6 @@ tkinter-tooltip==2.1.0
 # Audio Processing
 pyaudio==0.2.13
 pydub==0.25.1
-wave
-tempfile
 
 # Speech Recognition
 openai-whisper==20240930
@@ -18,23 +16,7 @@ numpy>=1.24.0
 # Database
 mysql-connector-python==8.2.0
 
-# Security and Authentication
-hashlib
-uuid
-requests>=2.31.0
-
-# System and File Operations
-pathlib
-shutil
-subprocess
-threading
-json
-os
-sys
-datetime
-time
-
-# LLM Integration (Ollama)
+# HTTP / Ollama Integration
 requests>=2.31.0
 
 # Remote Activation Service

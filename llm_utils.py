@@ -35,7 +35,7 @@ def generate_soap_with_ollama(transcription_text: str, model: str = "gemma4") ->
     # Check if model is available
     try:
         available_models = response.json()
-        model_names = [model['name'] for model in available_models.get('models', [])]
+        model_names = [m['name'] for m in available_models.get('models', [])]
         if model not in model_names:
             # Try to pull the model
             print(f"Model {model} not found, attempting to pull...")
@@ -207,18 +207,3 @@ def check_ollama_status() -> Dict[str, any]:
             'models': [],
             'message': f'Error checking Ollama status: {str(e)}'
         }
-
-def install_ollama_model(model_name: str = "gemma4") -> bool:
-    """
-    Install a specific Ollama model
-    """
-    try:
-        response = requests.post(
-            "http://localhost:11434/api/pull",
-            json={"name": model_name},
-            timeout=600  # 10 minutes timeout for model download
-        )
-        return response.status_code == 200
-    except Exception as e:
-        print(f"Error installing model {model_name}: {e}")
-        return False
