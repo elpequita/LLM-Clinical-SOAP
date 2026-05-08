@@ -207,7 +207,7 @@ def main():
     print("\n📋 Next steps:")
     print("   1. Set up MySQL database: python setup_mysql.py")
     print("   2. Install Ollama: https://ollama.ai/")
-    print("   3. Pull Ollama model: ollama pull llama3.2")
+    print("   3. Pull Ollama model: ollama pull gemma4")
     print("   4. Start activation service: python activation_service.py")
     print("   5. Run application: python clinical_app.py")
     

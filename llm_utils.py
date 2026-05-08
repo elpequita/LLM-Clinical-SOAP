@@ -10,13 +10,13 @@ class OllamaError(Exception):
     """Custom exception for Ollama-related errors"""
     pass
 
-def generate_soap_with_ollama(transcription_text: str, model: str = "llama3.2") -> Dict[str, str]:
+def generate_soap_with_ollama(transcription_text: str, model: str = "gemma4") -> Dict[str, str]:
     """
     Generate a SOAP note from transcription text using Ollama
     
     Args:
         transcription_text: The transcribed medical conversation
-        model: The Ollama model to use (default: llama3.2)
+        model: The Ollama model to use (default: gemma4)
     
     Returns:
         Dictionary containing SOAP note sections
@@ -208,7 +208,7 @@ def check_ollama_status() -> Dict[str, any]:
             'message': f'Error checking Ollama status: {str(e)}'
         }
 
-def install_ollama_model(model_name: str = "llama3.2") -> bool:
+def install_ollama_model(model_name: str = "gemma4") -> bool:
     """
     Install a specific Ollama model
     """
