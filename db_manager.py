@@ -6,19 +6,34 @@ import mysql.connector
 from mysql.connector import Error
 import json
 import uuid
+import threading
 from datetime import datetime
 from typing import Dict, List, Optional
 import os
 from pathlib import Path
 
+# Tracks databases whose schema has already been initialized in this process.
+# clinical_app.py, auth_manager, and security_manager each construct a
+# DatabaseManager at startup; without this guard each one would re-run the
+# full DDL block. IF NOT EXISTS makes that idempotent but it's still wasted
+# round-trips.
+_initialized_dbs: set = set()
+
+
 class DatabaseManager:
     """Handles MySQL database operations"""
-    
+
     def __init__(self, config_file: str = "db_config.json"):
         self.config_file = config_file
-        self.connection = None
+        # Per-thread connection storage. Each thread gets its own MySQL
+        # connection lazily on first use. Avoids the prior single-shared-
+        # connection design that wasn't safe for the worker threads
+        # introduced in clinical_app.py.
+        self._local = threading.local()
         self.config = self.load_config()
-        self.init_database()
+        if self.config["database"] not in _initialized_dbs:
+            self.init_database()
+            _initialized_dbs.add(self.config["database"])
     
     def load_config(self) -> Dict:
         """Load database configuration"""
@@ -48,18 +63,19 @@ class DatabaseManager:
         return default_config
     
     def get_connection(self):
-        """Get database connection"""
+        """Get the connection for the current thread (created lazily)."""
         try:
-            if self.connection is None or not self.connection.is_connected():
-                self.connection = mysql.connector.connect(
+            conn = getattr(self._local, "connection", None)
+            if conn is None or not conn.is_connected():
+                self._local.connection = mysql.connector.connect(
                     host=self.config['host'],
                     port=self.config['port'],
                     user=self.config['user'],
                     password=self.config['password'],
                     database=self.config['database'],
-                    autocommit=True
+                    autocommit=True,
                 )
-            return self.connection
+            return self._local.connection
         except Error as e:
             print(f"Error connecting to MySQL: {e}")
             return None
@@ -207,7 +223,7 @@ class DatabaseManager:
                 results.append({
                     'id': row[0],
                     'filename': row[1],
-                    'text': row[2][:100] + '...' if len(row[2]) > 100 else row[2],
+                    'text': (row[2] or "")[:100] + ('...' if row[2] and len(row[2]) > 100 else ''),
                     'created_at': row[3],
                     'status': row[4]
                 })
@@ -304,6 +320,8 @@ class DatabaseManager:
             return False
     
     def close(self):
-        """Close database connection"""
-        if self.connection and self.connection.is_connected():
-            self.connection.close()
+        """Close the calling thread's connection (if any)."""
+        conn = getattr(self._local, "connection", None)
+        if conn is not None and conn.is_connected():
+            conn.close()
+            self._local.connection = None

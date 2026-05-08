@@ -7,9 +7,11 @@ Generate keys with:  python -c "import secrets; print(secrets.token_hex(32))"
 """
 
 from flask import Flask, request, jsonify
+import json
 import os
 import sys
 from datetime import datetime
+from pathlib import Path
 
 try:
     from dotenv import load_dotenv
@@ -38,12 +40,38 @@ _user_keys_raw = _require_env("CLINICAL_API_KEY")
 VALID_API_KEYS = [k.strip() for k in _user_keys_raw.split(",") if k.strip()]
 ADMIN_KEY = _require_env("CLINICAL_ADMIN_KEY")
 
-# Activation status (in-memory; resets on service restart)
-ACTIVATION_STATUS = {
+# Activation status persisted to a JSON file alongside this script. Without
+# persistence, every service restart silently re-activated the app, defeating
+# the purpose of a remote-deactivation control.
+STATE_FILE = Path(__file__).resolve().parent / "activation_state.json"
+_DEFAULT_STATE = {
     "active": True,
     "message": "Application is active and licensed",
     "last_updated": datetime.now().isoformat(),
 }
+
+
+def _load_activation_state() -> dict:
+    if STATE_FILE.exists():
+        try:
+            data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+            # Merge with defaults so missing keys fall back rather than crash.
+            return {**_DEFAULT_STATE, **data}
+        except (OSError, json.JSONDecodeError) as e:
+            sys.stderr.write(
+                f"Warning: failed to load {STATE_FILE.name}: {e}. Using defaults.\n"
+            )
+    return dict(_DEFAULT_STATE)
+
+
+def _save_activation_state(state: dict) -> None:
+    try:
+        STATE_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    except OSError as e:
+        sys.stderr.write(f"Warning: failed to persist activation state: {e}\n")
+
+
+ACTIVATION_STATUS = _load_activation_state()
 
 
 def _extract_bearer(req) -> str:
@@ -96,6 +124,7 @@ def set_activation():
         ACTIVATION_STATUS["active"] = data.get("active", True)
         ACTIVATION_STATUS["message"] = data.get("message", "Status updated by admin")
         ACTIVATION_STATUS["last_updated"] = datetime.now().isoformat()
+        _save_activation_state(ACTIVATION_STATUS)
 
         return jsonify({
             "success": True,
@@ -137,6 +166,7 @@ def admin_deactivate():
         ACTIVATION_STATUS["active"] = False
         ACTIVATION_STATUS["message"] = "Application deactivated by admin"
         ACTIVATION_STATUS["last_updated"] = datetime.now().isoformat()
+        _save_activation_state(ACTIVATION_STATUS)
 
         return jsonify({
             "success": True,
@@ -161,6 +191,7 @@ def admin_activate():
         ACTIVATION_STATUS["active"] = True
         ACTIVATION_STATUS["message"] = "Application activated by admin"
         ACTIVATION_STATUS["last_updated"] = datetime.now().isoformat()
+        _save_activation_state(ACTIVATION_STATUS)
 
         return jsonify({
             "success": True,
