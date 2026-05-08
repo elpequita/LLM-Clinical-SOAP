@@ -6,23 +6,19 @@ import requests
 import json
 from typing import Dict, Optional
 
+# Per-model cache: once we've verified Ollama is up and the model is loaded
+# in this process, skip the /api/tags + /api/pull preflight on subsequent
+# calls. Reset for a model when a generate call fails so we re-verify.
+_verified_models: set = set()
+
+
 class OllamaError(Exception):
     """Custom exception for Ollama-related errors"""
     pass
 
-def generate_soap_with_ollama(transcription_text: str, model: str = "gemma4") -> Dict[str, str]:
-    """
-    Generate a SOAP note from transcription text using Ollama
-    
-    Args:
-        transcription_text: The transcribed medical conversation
-        model: The Ollama model to use (default: gemma4)
-    
-    Returns:
-        Dictionary containing SOAP note sections
-    """
-    
-    # Check if Ollama is running
+
+def _verify_ollama_and_model(model: str) -> None:
+    """Check Ollama is reachable and that `model` is loaded; pull if missing."""
     try:
         response = requests.get("http://localhost:11434/api/tags", timeout=5)
         if response.status_code != 200:
@@ -31,23 +27,43 @@ def generate_soap_with_ollama(transcription_text: str, model: str = "gemma4") ->
         raise OllamaError("Cannot connect to Ollama server. Please ensure Ollama is running.")
     except requests.Timeout:
         raise OllamaError("Timeout connecting to Ollama server")
-    
-    # Check if model is available
+
     try:
         available_models = response.json()
         model_names = [m['name'] for m in available_models.get('models', [])]
         if model not in model_names:
-            # Try to pull the model
             print(f"Model {model} not found, attempting to pull...")
             pull_response = requests.post(
                 "http://localhost:11434/api/pull",
                 json={"name": model},
-                timeout=300  # 5 minutes timeout for model download
+                timeout=300,
             )
             if pull_response.status_code != 200:
                 raise OllamaError(f"Failed to pull model {model}")
+    except OllamaError:
+        raise
     except Exception as e:
+        # Non-fatal: log and let the /api/generate call surface any real issue.
         print(f"Warning: Could not verify model availability: {e}")
+
+
+def generate_soap_with_ollama(transcription_text: str, model: str = "gemma4") -> Dict[str, str]:
+    """
+    Generate a SOAP note from transcription text using Ollama
+
+    Args:
+        transcription_text: The transcribed medical conversation
+        model: The Ollama model to use (default: gemma4)
+
+    Returns:
+        Dictionary containing SOAP note sections
+    """
+
+    # Skip the /api/tags preflight after first successful verification this
+    # process. Saves a round-trip on every analyze call.
+    if model not in _verified_models:
+        _verify_ollama_and_model(model)
+        _verified_models.add(model)
     
     # Create the prompt for SOAP note generation
     prompt = f"""
@@ -121,10 +137,16 @@ Only return the JSON object, nothing else.
             return parse_structured_text(soap_text, transcription_text)
             
     except requests.Timeout:
+        _verified_models.discard(model)
         raise OllamaError("Timeout waiting for Ollama response")
     except requests.ConnectionError:
+        _verified_models.discard(model)
         raise OllamaError("Lost connection to Ollama server")
+    except OllamaError:
+        _verified_models.discard(model)
+        raise
     except Exception as e:
+        _verified_models.discard(model)
         raise OllamaError(f"Unexpected error: {str(e)}")
 
 def parse_structured_text(text: str, original_text: str) -> Dict[str, str]:
