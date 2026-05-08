@@ -200,19 +200,23 @@ class AudioRecorder:
         """Stop recording and save to file"""
         try:
             self.recording = False
+            # Cache sample width while the PortAudio session is still alive.
+            # Some PyAudio builds route get_sample_size through the C session
+            # and return garbage (or raise) after terminate(); paInt16 is always
+            # 2 bytes but the safe-default fallback keeps the WAV header valid.
+            sample_width = self.audio.get_sample_size(pyaudio.paInt16) if self.audio else 2
             if self.stream:
                 self.stream.stop_stream()
                 self.stream.close()
             if self.audio:
                 self.audio.terminate()
-            
-            # Save audio file
+
             with wave.open(filename, 'wb') as wf:
                 wf.setnchannels(1)
-                wf.setsampwidth(self.audio.get_sample_size(pyaudio.paInt16))
+                wf.setsampwidth(sample_width)
                 wf.setframerate(44100)
                 wf.writeframes(b''.join(self.frames))
-            
+
             return True
         except Exception as e:
             print(f"Error stopping recording: {e}")
@@ -521,9 +525,47 @@ class ClinicalDocumentationApp:
         # Build UI first so whisper_status_label exists when background loaders fire
         self.create_ui()
 
+        # Hook the close button so we can release the mic / cancel timers cleanly.
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
         # Now safe to spawn the Whisper loader thread and the security timer
         self.load_whisper_model()
         self.start_security_timer()
+
+    def _on_close(self):
+        """Window close handler — releases recording resources before destroy.
+
+        Without this, closing the window mid-recording leaves the PortAudio
+        stream open. On Windows the OS holds the mic until Python GC collects
+        the AudioRecorder, which can be seconds-to-never depending on refs.
+        """
+        try:
+            if self.recording:
+                self.recording = False
+                self._stop_recording_timer()
+                try:
+                    if self.recorder.stream:
+                        self.recorder.stream.stop_stream()
+                        self.recorder.stream.close()
+                    if self.recorder.audio:
+                        self.recorder.audio.terminate()
+                except Exception as e:
+                    print(f"Recorder cleanup warning: {e}")
+            # Cancel any in-flight tick (defensive — _stop_recording_timer
+            # above handles the recording case but not other after callbacks).
+            after_id = getattr(self, "_recording_after_id", None)
+            if after_id is not None:
+                try:
+                    self.root.after_cancel(after_id)
+                except Exception:
+                    pass
+            # Release this thread's DB connection back to the pool / OS.
+            try:
+                self.db.close()
+            except Exception:
+                pass
+        finally:
+            self.root.destroy()
     
     def setup_ffmpeg(self):
         """Setup FFmpeg for Whisper"""
@@ -1126,6 +1168,13 @@ class ClinicalDocumentationApp:
         """Analyze transcription for medical content (Ollama call runs in a worker thread)"""
         if not self.current_transcription:
             return
+
+        # Pick up edits the clinician may have made to the transcript before
+        # clicking Analyze. save_transcription already does this; analyze must
+        # too or Ollama receives the stale unedited text.
+        edited = self.transcription_text.get("1.0", "end").strip()
+        if edited:
+            self.current_transcription['text'] = edited
 
         # Disable the button while the LLM runs — Ollama can take up to the
         # configured timeout (120s) and would otherwise freeze the UI.
