@@ -270,6 +270,7 @@ class LoginWindow:
         self.security_manager = security_manager
         self.root = None
         self.user_id = None
+        self.username = None
         
     def show_login(self):
         """Display login window"""
@@ -393,6 +394,7 @@ class LoginWindow:
         user_id = self.auth_manager.authenticate_user(username, password)
         if user_id:
             self.user_id = user_id
+            self.username = username
             self.root.destroy()
         else:
             self.error_label.configure(text="Invalid username or password")
@@ -485,8 +487,9 @@ class LoginWindow:
 class ClinicalDocumentationApp:
     """Main desktop application class"""
     
-    def __init__(self, user_id: str):
+    def __init__(self, user_id: str, username: str = "User"):
         self.user_id = user_id
+        self._username = username
         self.root = ctk.CTk()
         self.root.title("Clinical Documentation AI")
         self.root.geometry("1200x800")
@@ -577,10 +580,6 @@ class ClinicalDocumentationApp:
         """Top bar · two-column main area (Capture | Document) · status footer."""
         self.root.geometry("1320x860")
         self.root.minsize(1100, 720)
-
-        # Lookup username for the top bar (best effort).
-        info = self.db.get_user_info(self.user_id) or {}
-        self._username = info.get("username", "User")
 
         # Recording timer state
         self._recording_seconds = 0
@@ -1308,7 +1307,7 @@ def main():
         
         if user_id:
             # Start main application
-            app = ClinicalDocumentationApp(user_id)
+            app = ClinicalDocumentationApp(user_id, login_window.username or "User")
             app.run()
         else:
             print("Login cancelled or failed")
