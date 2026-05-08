@@ -15,7 +15,7 @@ import uuid
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 import customtkinter as ctk
-import whisper
+from faster_whisper import WhisperModel
 import pyaudio
 import wave
 import numpy as np
@@ -549,18 +549,27 @@ class ClinicalDocumentationApp:
         # Start first check after 30 seconds
         self.root.after(30000, check_security)
     
+    WHISPER_MODEL_NAME = "large-v3-turbo"
+
     def load_whisper_model(self):
-        """Load Whisper model in background"""
+        """Load Whisper model in background (faster-whisper / CTranslate2 backend)."""
         def load_model():
             try:
-                print("Loading Whisper model...")
-                self.whisper_model = whisper.load_model("base")
+                print(f"Loading Whisper model ({self.WHISPER_MODEL_NAME})...")
+                # device="auto" picks CUDA if a compatible GPU is present, else CPU.
+                # compute_type="int8" keeps memory tight on CPU and is still very fast;
+                # it auto-promotes to int8_float16 on GPU for accuracy.
+                self.whisper_model = WhisperModel(
+                    self.WHISPER_MODEL_NAME,
+                    device="auto",
+                    compute_type="int8",
+                )
                 print("Whisper model loaded successfully!")
                 self.root.after(0, self.update_model_status, True)
             except Exception as e:
                 print(f"Error loading Whisper model: {e}")
                 self.root.after(0, self.update_model_status, False)
-        
+
         threading.Thread(target=load_model, daemon=True).start()
     
     # ----- Status bar plumbing -----------------------------------------
@@ -569,8 +578,13 @@ class ClinicalDocumentationApp:
         """Background Whisper loader callback — updates the bottom status bar."""
         self._whisper_loaded = loaded
         if hasattr(self, "whisper_status_label"):
+            label = (
+                f"Whisper · {self.WHISPER_MODEL_NAME} · ✅ Ready"
+                if loaded
+                else f"Whisper · {self.WHISPER_MODEL_NAME} · ❌ Error"
+            )
             self.whisper_status_label.configure(
-                text=("Whisper · ✅ Ready" if loaded else "Whisper · ❌ Error"),
+                text=label,
                 text_color=("#2F855A", "#68D391") if loaded else ("#C53030", "#FC8181"),
             )
 
@@ -1000,69 +1014,41 @@ class ClinicalDocumentationApp:
                     processed_file = self.current_audio_file
                     print(f"Audio preprocessing warning: {e}")
                 
-                # Transcribe audio with multiple fallback options
+                # faster-whisper: transcribe() returns (segments_generator, info).
+                # VAD filter trims long silences and hallucinations on quiet audio.
+                # Beam size 5 is the recommended default for accuracy.
                 result = None
                 errors = []
-                
-                # Method 1: Standard Whisper transcription
                 try:
-                    result = self.whisper_model.transcribe(
-                        processed_file, 
-                        language=None, 
-                        task="transcribe",
-                        fp16=False
+                    segments_iter, info = self.whisper_model.transcribe(
+                        processed_file,
+                        beam_size=5,
+                        vad_filter=True,
+                        vad_parameters=dict(min_silence_duration_ms=500),
                     )
+                    # Materialize generator (it streams as the model decodes).
+                    segments = list(segments_iter)
+                    full_text = "".join(seg.text for seg in segments).strip()
+                    result = {
+                        "text": full_text,
+                        "language": info.language,
+                        "segments": [
+                            {
+                                "id": seg.id,
+                                "start": seg.start,
+                                "end": seg.end,
+                                "text": seg.text,
+                            }
+                            for seg in segments
+                        ],
+                    }
                 except Exception as e:
-                    errors.append(f"Standard transcription: {str(e)}")
-                
-                # Method 2: Fallback with basic parameters
-                if not result:
-                    try:
-                        result = self.whisper_model.transcribe(
-                            processed_file,
-                            temperature=0,
-                            best_of=1,
-                            beam_size=1,
-                            fp16=False
-                        )
-                    except Exception as e:
-                        errors.append(f"Basic transcription: {str(e)}")
-                
-                # Method 3: Try loading audio manually
-                if not result:
-                    try:
-                        import whisper.audio
-                        audio = whisper.load_audio(processed_file)
-                        audio = whisper.pad_or_trim(audio)
-                        
-                        # Get mel spectrogram
-                        mel = whisper.log_mel_spectrogram(audio).to(self.whisper_model.device)
-                        
-                        # Detect language
-                        _, probs = self.whisper_model.detect_language(mel)
-                        detected_language = max(probs, key=probs.get)
-                        
-                        # Decode
-                        options = whisper.DecodingOptions(
-                            language=detected_language,
-                            without_timestamps=True,
-                            fp16=False
-                        )
-                        result_obj = whisper.decode(self.whisper_model, mel, options)
-                        
-                        result = {
-                            'text': result_obj.text,
-                            'language': detected_language,
-                            'segments': []
-                        }
-                        
-                    except Exception as e:
-                        errors.append(f"Manual transcription: {str(e)}")
-                
+                    errors.append(f"Transcription: {str(e)}")
+
                 if result:
                     transcription_data = {
                         'filename': os.path.basename(self.current_audio_file),
-                        'text': result['text'].strip(),
+                        'text': result['text'],
                         'language': result.get('language', 'unknown'),
                         'segments': result.get('segments', [])
                     }
