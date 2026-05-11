@@ -14,6 +14,7 @@ os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 # running as admin / with Developer Mode on. The model still downloads correctly.
 os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 
+import logging
 import sys
 import json
 import threading
@@ -38,6 +39,21 @@ from security_manager import SecurityManager
 import requests
 import hashlib
 import time
+
+# PHI-aware logger. The transcription pipeline can echo patient content back
+# inside exception messages, audio file paths, and LLM responses. To avoid
+# accidental PHI exposure in stdout/log aggregators, sensitive code paths log
+# only exception types (not exception text) and never log file paths.
+# Operators can route to a file via the CLINICAL_LOG_FILE env var; otherwise
+# logging goes to stderr at WARNING and above.
+logger = logging.getLogger("clinical_app")
+if not logger.handlers:
+    _log_file = os.environ.get("CLINICAL_LOG_FILE", "").strip()
+    _handler = logging.FileHandler(_log_file) if _log_file else logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+    logger.addHandler(_handler)
+    logger.setLevel(logging.WARNING)
+    logger.propagate = False
 
 # Configure CustomTkinter
 ctk.set_appearance_mode("light")
@@ -265,13 +281,14 @@ class MedicalAnalyzer:
             return soap_note
         
         except Exception as e:
-            print(f"Error generating SOAP with LLM: {e}")
-            
-            # Fallback: return original placeholder text
+            # Log only the exception type — `e` may echo prompt content
+            # including transcribed PHI back to stdout/log aggregators.
+            logger.warning("Local LLM call failed (%s); using fallback SOAP template", type(e).__name__)
+
             return {
                 'subjective': f"Patient reported: {text[:200]}..." if len(text) > 200 else text,
                 'objective': "Clinical findings to be documented by healthcare provider",
-                'assessment': "Medical assessment to be completed by healthcare provider", 
+                'assessment': "Medical assessment to be completed by healthcare provider",
                 'plan': "Treatment plan to be determined by healthcare provider"
             }
 
@@ -1061,9 +1078,10 @@ class ClinicalDocumentationApp:
                     processed_file = AudioProcessor.preprocess_audio_for_whisper(self.current_audio_file)
                     self.root.after(0, lambda: self.progress_bar.set(0.5))
                 except Exception as e:
-                    # Try to use original file as fallback
+                    # Try to use original file as fallback. Suppress exception
+                    # text and file paths from logs — they're PHI-adjacent.
                     processed_file = self.current_audio_file
-                    print(f"Audio preprocessing warning: {e}")
+                    logger.warning("Audio preprocessing failed (%s); using original file", type(e).__name__)
                 
                 # faster-whisper: transcribe() returns (segments_generator, info).
                 # VAD filter trims long silences and hallucinations on quiet audio.
@@ -1111,12 +1129,14 @@ class ClinicalDocumentationApp:
                     error_msg = "All transcription methods failed:\n" + "\n".join(errors)
                     self.root.after(0, self.transcription_error, error_msg)
                 
-                # Clean up temporary file (PHI audio — best effort, log on failure)
+                # Clean up temporary file (PHI audio — best effort).
+                # Don't log the path; even the temp filename is PHI-adjacent
+                # because it reveals that a recording was made.
                 if processed_file != self.current_audio_file and os.path.exists(processed_file):
                     try:
                         os.unlink(processed_file)
                     except OSError as cleanup_err:
-                        print(f"Warning: could not delete temp audio {processed_file}: {cleanup_err}")
+                        logger.warning("Temp audio cleanup failed (%s)", type(cleanup_err).__name__)
                 
             except Exception as e:
                 self.root.after(0, self.transcription_error, str(e))
