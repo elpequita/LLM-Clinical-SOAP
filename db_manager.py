@@ -5,12 +5,18 @@ Database manager for MySQL integration
 import mysql.connector
 from mysql.connector import Error
 import json
+import re
 import uuid
 import threading
 from datetime import datetime
 from typing import Dict, List, Optional
 import os
 from pathlib import Path
+
+# MySQL identifiers (database names) cannot be parameterized in DDL, so they
+# are interpolated into f-strings. Reject anything that isn't a plain identifier
+# to close the SQL-injection surface that opens up if db_config.json is tampered.
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9_]+$")
 
 # Tracks databases whose schema has already been initialized in this process.
 # clinical_app.py, auth_manager, and security_manager each construct a
@@ -36,7 +42,12 @@ class DatabaseManager:
             _initialized_dbs.add(self.config["database"])
     
     def load_config(self) -> Dict:
-        """Load database configuration"""
+        """Load database configuration.
+
+        Resolution order: defaults → db_config.json → environment variables.
+        Environment variables (CLINICAL_DB_*) win, so credentials can be kept
+        out of the on-disk JSON file in production deployments.
+        """
         default_config = {
             "host": "localhost",
             "port": 3306,
@@ -44,24 +55,44 @@ class DatabaseManager:
             "password": "clinical_password",
             "database": "clinical_docs"
         }
-        
+
+        config = dict(default_config)
+
         if os.path.exists(self.config_file):
             try:
                 with open(self.config_file, 'r') as f:
-                    config = json.load(f)
-                    return {**default_config, **config}
+                    config.update(json.load(f))
             except Exception as e:
                 print(f"Error loading config file: {e}")
-        
-        # Save default config for future use
-        try:
-            with open(self.config_file, 'w') as f:
-                json.dump(default_config, f, indent=2)
-        except Exception as e:
-            print(f"Error saving config file: {e}")
-        
-        return default_config
-    
+
+        # Env-var overrides — these take precedence over the JSON file so an
+        # operator can keep secrets out of disk artifacts.
+        env_overrides = {
+            "host": os.environ.get("CLINICAL_DB_HOST"),
+            "user": os.environ.get("CLINICAL_DB_USER"),
+            "password": os.environ.get("CLINICAL_DB_PASSWORD"),
+            "database": os.environ.get("CLINICAL_DB_NAME"),
+        }
+        for k, v in env_overrides.items():
+            if v:
+                config[k] = v
+        port_env = os.environ.get("CLINICAL_DB_PORT")
+        if port_env:
+            try:
+                config["port"] = int(port_env)
+            except ValueError:
+                print(f"Invalid CLINICAL_DB_PORT={port_env!r}, ignoring")
+
+        # Validate the database name early — it's interpolated into DDL and
+        # must therefore be a strict identifier (alnum + underscore).
+        if not _IDENTIFIER_RE.match(config["database"]):
+            raise ValueError(
+                f"Invalid database name {config['database']!r}: "
+                "must be alphanumeric or underscore only."
+            )
+
+        return config
+
     def get_connection(self):
         """Get the connection for the current thread (created lazily)."""
         try:

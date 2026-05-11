@@ -81,3 +81,6 @@ agenthub/agents/youtube/db
 
 # Mobile development
 android-sdk/ 
+# Local Claude Code / Ruflo tooling artifacts
+.claude-flow/
+ruvector.db

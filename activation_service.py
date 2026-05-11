@@ -7,6 +7,7 @@ Generate keys with:  python -c "import secrets; print(secrets.token_hex(32))"
 """
 
 from flask import Flask, request, jsonify
+import hmac
 import json
 import os
 import sys
@@ -82,7 +83,14 @@ def _extract_bearer(req) -> str:
 
 
 def validate_api_key(api_key: str) -> bool:
-    return api_key in VALID_API_KEYS
+    # Constant-time comparison against each accepted key. hmac.compare_digest
+    # avoids leaking key-prefix length via early-exit timing differences.
+    return any(hmac.compare_digest(api_key, k) for k in VALID_API_KEYS)
+
+
+def _is_admin(api_key: str) -> bool:
+    """Constant-time admin key check."""
+    return hmac.compare_digest(api_key, ADMIN_KEY)
 
 
 @app.route("/api/check_activation", methods=["GET"])
@@ -114,7 +122,7 @@ def set_activation():
         if not api_key:
             return jsonify({"error": "Missing or invalid authorization header"}), 401
 
-        if api_key != ADMIN_KEY:
+        if not _is_admin(api_key):
             return jsonify({"error": "Admin privileges required"}), 403
 
         data = request.get_json()
@@ -160,7 +168,7 @@ def admin_deactivate():
         api_key = _extract_bearer(request)
         if not api_key:
             return jsonify({"error": "Missing authorization header"}), 401
-        if api_key != ADMIN_KEY:
+        if not _is_admin(api_key):
             return jsonify({"error": "Admin privileges required"}), 403
 
         ACTIVATION_STATUS["active"] = False
@@ -185,7 +193,7 @@ def admin_activate():
         api_key = _extract_bearer(request)
         if not api_key:
             return jsonify({"error": "Missing authorization header"}), 401
-        if api_key != ADMIN_KEY:
+        if not _is_admin(api_key):
             return jsonify({"error": "Admin privileges required"}), 403
 
         ACTIVATION_STATUS["active"] = True
