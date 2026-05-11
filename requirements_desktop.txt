@@ -1,8 +1,8 @@
 # Clinical Documentation Desktop Application Requirements
 
 # Core Desktop UI
-customtkinter==5.2.0
-tkinter-tooltip==2.1.0
+customtkinter>=5.2.2
+tkinter-tooltip>=2.1.0
 
 # Audio Processing
 pyaudio>=0.2.14
@@ -13,7 +13,7 @@ faster-whisper>=1.1.0
 numpy>=1.24.0
 
 # Database
-mysql-connector-python==8.2.0
+mysql-connector-python>=9.1.0
 
 # Security and Authentication
 bcrypt>=4.1.0
@@ -22,15 +22,17 @@ bcrypt>=4.1.0
 requests>=2.31.0
 
 # Remote Activation Service
-flask==3.0.0
-flask-cors==4.0.0
+flask>=3.1.0
+flask-cors>=5.0.0
 
 # Audio Format Support
 ffmpeg-python==0.2.0
 
 # Packaging and Distribution
-pyinstaller==6.2.0
-auto-py-to-exe==2.43.0
+# pyinstaller 6.9+ fixes the CTranslate2 hook that produced broken bundles for
+# faster-whisper. 6.2 will build but the resulting .exe crashes at startup.
+pyinstaller>=6.9.0
+auto-py-to-exe>=2.43.0
 
 # Development and Testing
 pytest>=7.4.0
